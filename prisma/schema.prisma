@@ -1,0 +1,797 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// MULTI-TENANT ARCHITECTURE - COMPANIES
+// ============================================================================
+
+model Company {
+  id             String           @id @default(cuid())
+  name           String
+  email          String           @unique
+  phone          String?
+  website        String?
+  address        Json?
+  logo           String?
+  
+  // Business settings
+  businessType   String?
+  taxId          String?
+  registrationNumber String?
+  
+  // Subscription and billing
+  subscriptionPlan SubscriptionPlan @default(BASIC)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  subscriptionStartDate DateTime?
+  subscriptionEndDate DateTime?
+  billingCycle   BillingCycle     @default(MONTHLY)
+  
+  // Company configuration
+  timezone       String           @default("UTC")
+  currency       String           @default("USD")
+  dateFormat     String           @default("MM/dd/yyyy")
+  timeFormat     String           @default("12h")
+  
+  // Status and metadata
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  users          User[]
+  branches       Branch[]
+  clients        Client[]
+  services       Service[]
+  staff          Staff[]
+  appointments   Appointment[]
+  invoices       Invoice[]
+  payments       Payment[]
+  reports        Report[]
+  settings       CompanySetting[]
+  auditLogs      AuditLog[]
+
+  @@map("companies")
+  @@index([subscriptionStatus])
+  @@index([isActive])
+}
+
+// ============================================================================
+// USERS AND AUTHENTICATION
+// ============================================================================
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  avatar         String?
+  password       String
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Role and permissions
+  role           UserRole         @default(USER)
+  permissions    Json?            // Custom permissions JSON
+  
+  // Account status
+  isActive       Boolean          @default(true)
+  isVerified     Boolean          @default(false)
+  lastLoginAt    DateTime?
+  
+  // Password reset
+  resetToken     String?
+  resetTokenExpiry DateTime?
+  
+  // Email verification
+  verificationToken String?
+  verificationTokenExpiry DateTime?
+  
+  // Metadata
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  staffProfile   Staff?
+  createdClients Client[]
+  createdAppointments Appointment[]
+  createdInvoices Invoice[]
+  createdPayments Payment[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+  @@index([companyId])
+  @@index([email])
+  @@index([isActive])
+}
+
+// ============================================================================
+// BRANCHES
+// ============================================================================
+
+model Branch {
+  id             String           @id @default(cuid())
+  name           String
+  address        Json
+  phone          String?
+  email          String?
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Branch settings
+  isMain         Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  
+  // Operating hours (JSON structure for flexible scheduling)
+  operatingHours Json?
+  
+  // Metadata
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  staff          Staff[]
+  appointments   Appointment[]
+  services       ServiceBranch[]
+
+  @@map("branches")
+  @@index([companyId])
+  @@index([isActive])
+}
+
+// ============================================================================
+// CLIENTS
+// ============================================================================
+
+model Client {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Basic information
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  dateOfBirth    DateTime?
+  gender         Gender?
+  
+  // Address information
+  address        Json?
+  
+  // Client preferences
+  preferredLanguage String?
+  preferredCommunication CommunicationMethod @default(EMAIL)
+  
+  // Medical/service history
+  allergies      String?
+  medicalConditions String?
+  notes          String?
+  
+  // Marketing and preferences
+  marketingConsent Boolean        @default(false)
+  reminderPreferences Json?
+  
+  // Status
+  status         ClientStatus     @default(ACTIVE)
+  isActive       Boolean          @default(true)
+  
+  // Metadata
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  appointments   Appointment[]
+  invoices       Invoice[]
+  payments       Payment[]
+
+  @@map("clients")
+  @@index([companyId])
+  @@index([email])
+  @@index([status])
+  @@index([isActive])
+}
+
+// ============================================================================
+// STAFF
+// ============================================================================
+
+model Staff {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Link to user account (optional for external staff)
+  userId         String?          @unique
+  user           User?            @relation(fields: [userId], references: [id])
+  
+  // Basic information
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  avatar         String?
+  
+  // Employment details
+  employeeId     String?
+  position       String?
+  department     String?
+  hireDate       DateTime?
+  
+  // Branch assignment
+  branchId       String
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  
+  // Professional details
+  specializations String[]
+  certifications Json?
+  qualifications String?
+  bio            String?
+  
+  // Work schedule and availability
+  workSchedule   Json?            // Weekly schedule
+  availability   Json?            // Custom availability rules
+  
+  // Commission and pay
+  commissionRate Decimal?         @db.Decimal(5, 4)
+  hourlyRate     Decimal?         @db.Decimal(8, 2)
+  
+  // Status
+  status         StaffStatus      @default(ACTIVE)
+  isActive       Boolean          @default(true)
+  
+  // Metadata
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  appointments   Appointment[]
+  services       StaffService[]
+  timeOffs       StaffTimeOff[]
+
+  @@map("staff")
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([isActive])
+}
+
+// ============================================================================
+// SERVICES
+// ============================================================================
+
+model Service {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Basic information
+  name           String
+  description    String?
+  category       String?
+  
+  // Pricing
+  price          Decimal          @db.Decimal(10, 2)
+  duration       Int              // Duration in minutes
+  
+  // Service settings
+  maxAdvanceBooking Int?          // Days in advance
+  minAdvanceBooking Int?          // Minimum hours in advance
+  bufferTime     Int?             // Buffer time in minutes
+  
+  // Availability
+  isActive       Boolean          @default(true)
+  isOnline       Boolean          @default(false)
+  
+  // Resources and requirements
+  roomRequired   Boolean          @default(false)
+  equipmentRequired String?
+  
+  // Metadata
+  color          String?          // For calendar display
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  branches       ServiceBranch[]
+  staff          StaffService[]
+  appointments   Appointment[]
+
+  @@map("services")
+  @@index([companyId])
+  @@index([isActive])
+  @@index([category])
+}
+
+// ============================================================================
+// JUNCTION TABLES
+// ============================================================================
+
+model ServiceBranch {
+  id        String   @id @default(cuid())
+  serviceId String
+  branchId  String
+  
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  
+  isActive  Boolean  @default(true)
+  
+  @@unique([serviceId, branchId])
+  @@map("service_branches")
+}
+
+model StaffService {
+  id        String   @id @default(cuid())
+  staffId   String
+  serviceId String
+  
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  // Custom pricing for this staff member
+  customPrice Decimal? @db.Decimal(10, 2)
+  
+  isActive  Boolean  @default(true)
+  
+  @@unique([staffId, serviceId])
+  @@map("staff_services")
+}
+
+// ============================================================================
+// APPOINTMENTS
+// ============================================================================
+
+model Appointment {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Basic appointment details
+  title          String?
+  startTime      DateTime
+  endTime        DateTime
+  
+  // Relationships
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  
+  staffId        String
+  staff          Staff            @relation(fields: [staffId], references: [id])
+  
+  serviceId      String
+  service        Service          @relation(fields: [serviceId], references: [id])
+  
+  branchId       String
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  
+  // Appointment details
+  notes          String?
+  internalNotes  String?
+  
+  // Status and tracking
+  status         AppointmentStatus @default(SCHEDULED)
+  reminderSent   Boolean          @default(false)
+  
+  // Pricing (can override service price)
+  price          Decimal?         @db.Decimal(10, 2)
+  
+  // Cancellation
+  cancellationReason String?
+  cancelledAt    DateTime?
+  
+  // Metadata
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  invoices       AppointmentInvoice[]
+
+  @@map("appointments")
+  @@index([companyId])
+  @@index([clientId])
+  @@index([staffId])
+  @@index([branchId])
+  @@index([startTime])
+  @@index([status])
+}
+
+// ============================================================================
+// INVOICING AND PAYMENTS
+// ============================================================================
+
+model Invoice {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Invoice details
+  invoiceNumber  String
+  title          String?
+  
+  // Client relationship
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  
+  // Dates
+  issueDate      DateTime         @default(now())
+  dueDate        DateTime
+  
+  // Financial details
+  subtotal       Decimal          @default(0) @db.Decimal(10, 2)
+  taxRate        Decimal          @default(0) @db.Decimal(5, 4)
+  taxAmount      Decimal          @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal          @default(0) @db.Decimal(10, 2)
+  total          Decimal          @default(0) @db.Decimal(10, 2)
+  
+  // Status and payment
+  status         InvoiceStatus    @default(DRAFT)
+  paidAmount     Decimal          @default(0) @db.Decimal(10, 2)
+  
+  // Additional information
+  notes          String?
+  terms          String?
+  
+  // Metadata
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  items          InvoiceItem[]
+  appointments   AppointmentInvoice[]
+  payments       Payment[]
+
+  @@unique([companyId, invoiceNumber])
+  @@map("invoices")
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  
+  // Invoice relationship
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  description String
+  quantity    Decimal  @db.Decimal(10, 3)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  
+  // Ordering
+  order       Int      @default(0)
+
+  @@map("invoice_items")
+  @@index([invoiceId])
+}
+
+model AppointmentInvoice {
+  id            String      @id @default(cuid())
+  
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  invoiceId     String
+  invoice       Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@unique([appointmentId, invoiceId])
+  @@map("appointment_invoices")
+}
+
+model Payment {
+  id             String           @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount         Decimal          @db.Decimal(10, 2)
+  paymentDate    DateTime         @default(now())
+  paymentMethod  PaymentMethod
+  
+  // Relationships
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  
+  invoiceId      String?
+  invoice        Invoice?         @relation(fields: [invoiceId], references: [id])
+  
+  // Payment processing
+  transactionId  String?
+  paymentGateway String?
+  
+  // Status
+  status         PaymentStatus    @default(COMPLETED)
+  
+  // Additional information
+  notes          String?
+  
+  // Metadata
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("payments")
+  @@index([companyId])
+  @@index([clientId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+// ============================================================================
+// STAFF MANAGEMENT
+// ============================================================================
+
+model StaffTimeOff {
+  id        String          @id @default(cuid())
+  
+  staffId   String
+  staff     Staff          @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  
+  startDate DateTime
+  endDate   DateTime
+  type      TimeOffType
+  reason    String?
+  status    TimeOffStatus  @default(PENDING)
+  
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("staff_time_offs")
+  @@index([staffId])
+  @@index([startDate])
+}
+
+// ============================================================================
+// COMPANY SETTINGS AND CONFIGURATION
+// ============================================================================
+
+model CompanySetting {
+  id        String  @id @default(cuid())
+  
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  key       String
+  value     Json
+  category  String? // e.g., 'general', 'booking', 'notifications'
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, key])
+  @@map("company_settings")
+  @@index([companyId])
+  @@index([category])
+}
+
+// ============================================================================
+// REPORTING AND ANALYTICS
+// ============================================================================
+
+model Report {
+  id         String      @id @default(cuid())
+  
+  companyId  String
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  name       String
+  type       ReportType
+  parameters Json?       // Report parameters and filters
+  data       Json?       // Cached report data
+  
+  // Scheduling
+  isScheduled Boolean    @default(false)
+  schedule    String?    // Cron expression
+  
+  // Status
+  status      ReportStatus @default(DRAFT)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("reports")
+  @@index([companyId])
+  @@index([type])
+}
+
+// ============================================================================
+// AUDIT LOGS
+// ============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  
+  action     String   // e.g., 'CREATE', 'UPDATE', 'DELETE'
+  resource   String   // e.g., 'appointment', 'client', 'invoice'
+  resourceId String?  // ID of the affected resource
+  
+  // Change tracking
+  oldValues  Json?
+  newValues  Json?
+  
+  // Additional context
+  ipAddress  String?
+  userAgent  String?
+  
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([companyId])
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  USER
+  STAFF
+  RECEPTIONIST
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum CommunicationMethod {
+  EMAIL
+  SMS
+  PHONE
+  WHATSAPP
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  PAYPAL
+  STRIPE
+  SQUARE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum TimeOffType {
+  VACATION
+  SICK_LEAVE
+  PERSONAL
+  BEREAVEMENT
+  MATERNITY
+  PATERNITY
+  OTHER
+}
+
+enum TimeOffStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELLED
+}
+
+enum ReportType {
+  REVENUE
+  APPOINTMENTS
+  CLIENTS
+  STAFF_PERFORMANCE
+  SERVICE_ANALYSIS
+  CUSTOM
+}
+
+enum ReportStatus {
+  DRAFT
+  GENERATED
+  SCHEDULED
+  FAILED
+}

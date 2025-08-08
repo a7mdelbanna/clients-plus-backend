@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env*
+*.log
+prisma/generated/
+uploads/
+.git/
+.vscode/
+.idea/
+*.md
+package-lock.json
+yarn.lock
