@@ -22,8 +22,9 @@ jest.mock('@prisma/client', () => ({
   },
   SubscriptionPlan: {
     BASIC: 'BASIC',
-    PREMIUM: 'PREMIUM',
+    PROFESSIONAL: 'PROFESSIONAL',
     ENTERPRISE: 'ENTERPRISE',
+    CUSTOM: 'CUSTOM',
   },
   SubscriptionStatus: {
     ACTIVE: 'ACTIVE',
@@ -33,7 +34,6 @@ jest.mock('@prisma/client', () => ({
   },
   BillingCycle: {
     MONTHLY: 'MONTHLY',
-    QUARTERLY: 'QUARTERLY',
     YEARLY: 'YEARLY',
   },
   AppointmentStatus: {

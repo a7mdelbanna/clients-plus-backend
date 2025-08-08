@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs';
 import { generateAccessToken, generateRefreshToken, generateTokenId } from '../../src/utils/jwt.utils';
 import { prismaMock } from '../setup';
 
+// Export prismaMock for use in other test files
+export { prismaMock };
+
 export interface MockUser extends User {
   company: Company;
 }

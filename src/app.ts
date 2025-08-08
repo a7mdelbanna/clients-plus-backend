@@ -19,6 +19,7 @@ import { requestLogger } from './middleware/requestLogger';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
+import companyRoutes from './routes/company.routes';
 import userRoutes from './routes/user.routes';
 import clientRoutes from './routes/client.routes';
 import projectRoutes from './routes/project.routes';
@@ -104,6 +105,7 @@ class App {
     const apiPrefix = env.API_PREFIX;
     
     this.app.use(`${apiPrefix}/auth`, authRoutes);
+    this.app.use(`${apiPrefix}/companies`, companyRoutes);
     this.app.use(`${apiPrefix}/users`, userRoutes);
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);
