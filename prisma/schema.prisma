@@ -108,7 +108,6 @@ model User {
   // Relations
   staffProfile   Staff?
   createdClients Client[]
-  createdAppointments Appointment[]
   createdInvoices Invoice[]
   createdPayments Payment[]
   auditLogs      AuditLog[]
@@ -171,6 +170,7 @@ model Branch {
   serviceBranches ServiceBranch[]
   inventories    Inventory[]
   inventoryMovements InventoryMovement[]
+  invoices       Invoice[]
 
   @@map("branches")
   @@index([companyId])
@@ -417,7 +417,6 @@ model Service {
   // Relations
   branches        ServiceBranch[]
   staffServices   StaffService[]
-  appointments    Appointment[]
 
   @@map("services")
   @@index([companyId])
@@ -578,61 +577,120 @@ model StaffSchedule {
 // ============================================================================
 
 model Appointment {
-  id             String           @id @default(cuid())
+  id                String @id @default(cuid())
+  companyId         String
+  branchId          String
+  clientId          String
+  staffId           String?
+  resourceId        String? // For resource-based appointments
   
-  // Multi-tenant relationship
-  companyId      String
-  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Client Information (denormalized for performance)
+  clientName        String
+  clientPhone       String
+  clientEmail       String?
+  isNewClient       Boolean @default(false)
   
-  // Basic appointment details
-  title          String?
-  startTime      DateTime
-  endTime        DateTime
+  // Staff Information (denormalized for performance)
+  staffName         String?
   
-  // Relationships
-  clientId       String
-  client         Client           @relation(fields: [clientId], references: [id])
+  // Scheduling
+  date              DateTime
+  startTime         String // "09:00"
+  endTime           String // "10:30"
+  duration          Int? // in minutes (legacy)
+  totalDuration     Int // in minutes
   
-  staffId        String
-  staff          Staff            @relation(fields: [staffId], references: [id])
+  // Services - Enhanced to support multiple services per appointment
+  services          Json // Array of service objects with details
+  categoryId        String?
+  totalPrice        Decimal @db.Decimal(10, 2)
   
-  serviceId      String
-  service        Service          @relation(fields: [serviceId], references: [id])
+  // Status
+  status            AppointmentStatus @default(PENDING)
+  paymentStatus     PaymentStatus @default(PENDING)
   
-  branchId       String
-  branch         Branch           @relation(fields: [branchId], references: [id])
+  // Recurring
+  isRecurring       Boolean @default(false)
+  recurringPattern  Json? // Recurring configuration
+  recurringGroupId  String? // Links recurring appointments
+  repeat            Json? // Legacy Firebase repeat structure
+  repeatGroupId     String? // Legacy Firebase field
   
-  // Appointment details
-  notes          String?
-  internalNotes  String?
+  // Details
+  title             String?
+  notes             String?
+  internalNotes     String? // staff-only notes
+  color             String?
   
-  // Status and tracking
-  status         AppointmentStatus @default(SCHEDULED)
-  reminderSent   Boolean          @default(false)
+  // Pricing
+  startingPrice     Decimal? @db.Decimal(10, 2)
+  prepaidAmount     Decimal? @db.Decimal(10, 2)
+  paidAmount        Decimal @default(0) @db.Decimal(10, 2)
+  discount          Decimal? @db.Decimal(10, 2)
   
-  // Pricing (can override service price)
-  price          Decimal?         @db.Decimal(10, 2)
-  
-  // Cancellation
-  cancellationReason String?
-  cancelledAt    DateTime?
+  // Resources
+  resources         Json? // Array of resource objects
   
   // Metadata
-  createdById    String
-  createdBy      User            @relation(fields: [createdById], references: [id])
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
+  source            AppointmentSource @default(DASHBOARD)
+  bookingLinkId     String? // if booked online
+  createdBy         String?
+  lastModifiedBy    String?
+  
+  // Cancellation Info
+  cancelledBy       String? // 'client' | 'staff' | 'system'
+  cancelledAt       DateTime?
+  cancellationReason String?
+  
+  // Reschedule Info
+  rescheduledTo     String? // ID of the new appointment
+  rescheduledAt     DateTime?
+  
+  // Notifications
+  notifications     Json? // Array of notification objects
+  reminderSent      Boolean @default(false)
+  
+  // Change tracking
+  changeHistory     Json? // Array of change history objects
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
   // Relations
-  invoices       AppointmentInvoice[]
-
-  @@map("appointments")
-  @@index([companyId])
+  company           Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch            Branch @relation(fields: [branchId], references: [id])
+  client            Client @relation(fields: [clientId], references: [id])
+  staff             Staff? @relation(fields: [staffId], references: [id])
+  invoices          AppointmentInvoice[]
+  invoice           Invoice?
+  reminders         AppointmentReminder[]
+  
+  @@index([companyId, branchId, date])
   @@index([clientId])
   @@index([staffId])
-  @@index([branchId])
-  @@index([startTime])
+  @@index([date, startTime])
   @@index([status])
+  @@index([recurringGroupId])
+  @@index([source])
+  
+  @@map("appointments")
+}
+
+model AppointmentReminder {
+  id              String @id @default(cuid())
+  appointmentId   String
+  type            String // SMS, EMAIL, WHATSAPP
+  scheduledFor    DateTime
+  sent            Boolean @default(false)
+  sentAt          DateTime?
+  
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  @@index([appointmentId])
+  @@index([scheduledFor])
+  @@index([sent])
+  
+  @@map("appointment_reminders")
 }
 
 // ============================================================================
@@ -646,6 +704,10 @@ model Invoice {
   companyId      String
   company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
+  // Branch relationship (required)
+  branchId       String
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  
   // Invoice details
   invoiceNumber  String
   title          String?
@@ -654,8 +716,13 @@ model Invoice {
   clientId       String
   client         Client           @relation(fields: [clientId], references: [id])
   
+  // Optional appointment relationship
+  appointmentId  String?          @unique
+  appointment    Appointment?     @relation(fields: [appointmentId], references: [id])
+  
   // Dates
-  issueDate      DateTime         @default(now())
+  invoiceDate    DateTime         @default(now())
+  issueDate      DateTime         @default(now()) // Deprecated: use invoiceDate
   dueDate        DateTime
   
   // Financial details
@@ -663,15 +730,30 @@ model Invoice {
   taxRate        Decimal          @default(0) @db.Decimal(5, 4)
   taxAmount      Decimal          @default(0) @db.Decimal(10, 2)
   discountAmount Decimal          @default(0) @db.Decimal(10, 2)
+  discountType   String?          // PERCENTAGE, FIXED
+  discountValue  Decimal?         @db.Decimal(10, 2)
   total          Decimal          @default(0) @db.Decimal(10, 2)
   
-  // Status and payment
+  // Payment tracking
   status         InvoiceStatus    @default(DRAFT)
+  paymentStatus  PaymentStatus    @default(PENDING)
   paidAmount     Decimal          @default(0) @db.Decimal(10, 2)
+  balanceAmount  Decimal          @default(0) @db.Decimal(10, 2) // Calculated: total - paidAmount
+  
+  // Currency and localization
+  currency       String           @default("EGP")
   
   // Additional information
   notes          String?
+  internalNotes  String?
   terms          String?
+  termsConditions String?
+  
+  // Status tracking
+  sentAt         DateTime?
+  viewedAt       DateTime?
+  paidAt         DateTime?
+  cancelledAt    DateTime?
   
   // Metadata
   createdById    String
@@ -687,9 +769,13 @@ model Invoice {
   @@unique([companyId, invoiceNumber])
   @@map("invoices")
   @@index([companyId])
+  @@index([branchId])
   @@index([clientId])
+  @@index([appointmentId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([dueDate])
+  @@index([invoiceDate])
 }
 
 model InvoiceItem {
@@ -699,10 +785,16 @@ model InvoiceItem {
   invoiceId   String
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   
+  // Item type and reference
+  type        String   // SERVICE, PRODUCT, CUSTOM
+  itemId      String?  // Reference to service/product ID
+  
   // Item details
   description String
   quantity    Decimal  @db.Decimal(10, 3)
   unitPrice   Decimal  @db.Decimal(10, 2)
+  discount    Decimal? @db.Decimal(10, 2) // Item-level discount
+  taxRate     Decimal? @db.Decimal(5, 4) // Item-level tax rate
   total       Decimal  @db.Decimal(10, 2)
   
   // Ordering
@@ -710,6 +802,8 @@ model InvoiceItem {
 
   @@map("invoice_items")
   @@index([invoiceId])
+  @@index([type])
+  @@index([itemId])
 }
 
 model AppointmentInvoice {
@@ -736,20 +830,22 @@ model Payment {
   amount         Decimal          @db.Decimal(10, 2)
   paymentDate    DateTime         @default(now())
   paymentMethod  PaymentMethod
+  reference      String?          // Payment reference number
   
   // Relationships
   clientId       String
   client         Client           @relation(fields: [clientId], references: [id])
   
-  invoiceId      String?
-  invoice        Invoice?         @relation(fields: [invoiceId], references: [id])
+  invoiceId      String
+  invoice        Invoice          @relation(fields: [invoiceId], references: [id])
   
   // Payment processing
   transactionId  String?
   paymentGateway String?
+  processedAt    DateTime?
   
   // Status
-  status         PaymentStatus    @default(COMPLETED)
+  status         PaymentStatus    @default(PENDING)
   
   // Additional information
   notes          String?
@@ -765,6 +861,7 @@ model Payment {
   @@index([clientId])
   @@index([invoiceId])
   @@index([status])
+  @@index([paymentDate])
 }
 
 // ============================================================================
@@ -939,8 +1036,10 @@ enum StaffStatus {
 }
 
 enum AppointmentStatus {
+  PENDING
   SCHEDULED
   CONFIRMED
+  ARRIVED
   IN_PROGRESS
   COMPLETED
   CANCELLED
@@ -948,11 +1047,20 @@ enum AppointmentStatus {
   RESCHEDULED
 }
 
+enum AppointmentSource {
+  DASHBOARD
+  ONLINE
+  PHONE
+  WALK_IN
+  API
+}
+
 enum InvoiceStatus {
   DRAFT
   SENT
   VIEWED
   PAID
+  PARTIAL
   OVERDUE
   CANCELLED
   REFUNDED
@@ -971,10 +1079,13 @@ enum PaymentMethod {
 
 enum PaymentStatus {
   PENDING
-  COMPLETED
-  FAILED
+  PARTIAL
+  PAID
+  OVERDUE
   CANCELLED
   REFUNDED
+  COMPLETED
+  FAILED
 }
 
 enum TimeOffType {

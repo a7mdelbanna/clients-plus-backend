@@ -1,5 +1,6 @@
 import { PrismaClient, Client, Prisma, ClientStatus, Gender, CommunicationMethod } from '@prisma/client';
 import { logger } from '../config/logger';
+import { wsIntegration } from '../websocket/websocket.integration';
 
 const prisma = new PrismaClient();
 
@@ -616,6 +617,15 @@ export class ClientService {
       }).catch(logger.error);
 
       logger.info(`Client created successfully: ${client.id}`);
+
+      // Emit WebSocket event for real-time updates
+      try {
+        const extendedClient = this.convertToExtendedClient(client);
+        wsIntegration.emitClientCreated(extendedClient as any);
+      } catch (wsError) {
+        logger.warn('Failed to emit WebSocket event for client creation:', wsError);
+      }
+
       return client.id;
     } catch (error) {
       logger.error('Error creating client:', error);
@@ -665,6 +675,16 @@ export class ClientService {
       });
 
       logger.info(`Client updated successfully: ${clientId}`);
+
+      // Emit WebSocket event for real-time updates
+      try {
+        const updatedClient = await this.getClient(clientId, companyId);
+        if (updatedClient) {
+          wsIntegration.emitClientUpdated(updatedClient as any);
+        }
+      } catch (wsError) {
+        logger.warn('Failed to emit WebSocket event for client update:', wsError);
+      }
     } catch (error) {
       logger.error('Error updating client:', error);
       throw error;

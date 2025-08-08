@@ -2,6 +2,7 @@ import { Server } from 'http';
 import App from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { webSocketServer } from './websocket/socket.server';
 
 class ServerManager {
   private app: App;
@@ -24,6 +25,10 @@ class ServerManager {
       }
       
       logger.info(`🔗 Server URL: http://localhost:${port}`);
+      
+      // Initialize WebSocket server
+      webSocketServer.initialize(this.server);
+      logger.info(`🔌 WebSocket server initialized on port ${port}`);
     });
 
     // Handle server errors
@@ -66,6 +71,9 @@ class ServerManager {
           logger.info('🔌 Server closed');
 
           try {
+            // Close WebSocket server
+            webSocketServer.close();
+            
             // Close database connection
             await this.app.close();
             logger.info('✅ Graceful shutdown completed');
