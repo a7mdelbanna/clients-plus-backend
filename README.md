@@ -4,10 +4,17 @@ A comprehensive Node.js backend API for client management system built with Type
 
 ## Features
 
-- **Authentication & Authorization**: JWT-based auth with refresh tokens
-- **Client Management**: Full CRUD operations for clients
+- **Authentication & Authorization**: JWT-based auth with refresh tokens and multi-tenant support
+- **Client Management**: Comprehensive CRUD operations with Firebase feature parity
+  - Advanced filtering and search capabilities
+  - Duplicate detection with fuzzy matching
+  - Phone normalization (Egyptian format)
+  - Client statistics and analytics
+  - Bulk operations support
+  - Soft delete functionality
 - **Project Management**: Track projects and their status
 - **Invoice Management**: Create, send, and manage invoices
+- **Company Management**: Multi-tenant architecture with branch support
 - **File Upload**: Handle document and image uploads
 - **Email Integration**: Send notifications and invoices via email
 - **API Documentation**: Auto-generated Swagger/OpenAPI docs
