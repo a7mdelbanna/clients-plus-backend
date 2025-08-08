@@ -58,8 +58,6 @@ model Company {
   reports        Report[]
   settings       CompanySetting[]
   auditLogs      AuditLog[]
-  products       Product[]
-  productCategories ProductCategory[]
 
   @@map("companies")
   @@index([subscriptionStatus])
@@ -167,8 +165,6 @@ model Branch {
   staffAssignments StaffBranch[]  @relation("StaffBranchAssignments")
   appointments   Appointment[]
   serviceBranches ServiceBranch[]
-  inventories    Inventory[]
-  inventoryMovements InventoryMovement[]
 
   @@map("branches")
   @@index([companyId])
@@ -1119,4 +1115,3 @@ enum InventoryMovementType {
   TRANSFER    // Transfer between branches
   ADJUSTMENT  // Manual adjustment
 }
-

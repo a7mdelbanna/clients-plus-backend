@@ -1,0 +1,161 @@
+[
+  {
+    "id": "branch-main",
+    "name": "Downtown Spa & Wellness Center",
+    "type": "MAIN",
+    "status": "ACTIVE",
+    "isMain": true,
+    "isActive": true,
+    "address": {
+      "street": "123 Main Street",
+      "city": "Downtown",
+      "state": "CA",
+      "country": "United States",
+      "postalCode": "90210"
+    },
+    "phone": "+1-555-0001",
+    "email": "downtown@spa.com",
+    "coordinates": {
+      "lat": 34.0522,
+      "lng": -118.2437
+    },
+    "operatingHours": {
+      "monday": { "open": "09:00", "close": "19:00", "closed": false },
+      "tuesday": { "open": "09:00", "close": "19:00", "closed": false },
+      "wednesday": { "open": "09:00", "close": "19:00", "closed": false },
+      "thursday": { "open": "09:00", "close": "20:00", "closed": false },
+      "friday": { "open": "09:00", "close": "20:00", "closed": false },
+      "saturday": { "open": "08:00", "close": "18:00", "closed": false },
+      "sunday": { "open": "10:00", "close": "17:00", "closed": false }
+    },
+    "services": ["service-massage-60", "service-facial-45", "service-haircut-90", "service-manicure-30", "service-consultation-30"],
+    "resources": ["room-1", "room-2", "room-3", "salon-chair-1", "salon-chair-2"],
+    "staffIds": ["staff-therapist-1", "staff-esthetician-1", "staff-stylist-1", "staff-receptionist-1"],
+    "settings": {
+      "allowOnlineBooking": true,
+      "requireDeposit": false,
+      "cancellationPolicy": "24h",
+      "autoConfirmBookings": true,
+      "maxDailyBookings": 50
+    }
+  },
+  {
+    "id": "branch-westside",
+    "name": "Westside Wellness Studio",
+    "type": "SECONDARY",
+    "status": "ACTIVE",
+    "isMain": false,
+    "isActive": true,
+    "address": {
+      "street": "456 Westside Avenue",
+      "city": "Westside",
+      "state": "CA",
+      "country": "United States",
+      "postalCode": "90405"
+    },
+    "phone": "+1-555-0002",
+    "email": "westside@spa.com",
+    "coordinates": {
+      "lat": 34.0195,
+      "lng": -118.4912
+    },
+    "operatingHours": {
+      "monday": { "open": "10:00", "close": "18:00", "closed": false },
+      "tuesday": { "open": "10:00", "close": "18:00", "closed": false },
+      "wednesday": { "open": "10:00", "close": "18:00", "closed": false },
+      "thursday": { "open": "10:00", "close": "18:00", "closed": false },
+      "friday": { "open": "10:00", "close": "18:00", "closed": false },
+      "saturday": { "open": "09:00", "close": "17:00", "closed": false },
+      "sunday": { "closed": true }
+    },
+    "services": ["service-massage-60", "service-facial-45", "service-consultation-30"],
+    "resources": ["room-w1", "room-w2"],
+    "staffIds": ["staff-therapist-1", "staff-parttime-1"],
+    "settings": {
+      "allowOnlineBooking": true,
+      "requireDeposit": true,
+      "cancellationPolicy": "48h",
+      "autoConfirmBookings": false,
+      "maxDailyBookings": 20
+    }
+  },
+  {
+    "id": "branch-uptown",
+    "name": "Uptown Beauty Lounge",
+    "type": "SECONDARY",
+    "status": "ACTIVE",
+    "isMain": false,
+    "isActive": true,
+    "address": {
+      "street": "789 Uptown Boulevard",
+      "city": "Uptown",
+      "state": "CA",
+      "country": "United States",
+      "postalCode": "90210"
+    },
+    "phone": "+1-555-0003",
+    "email": "uptown@spa.com",
+    "coordinates": {
+      "lat": 34.0900,
+      "lng": -118.3617
+    },
+    "operatingHours": {
+      "monday": { "closed": true },
+      "tuesday": { "open": "11:00", "close": "19:00", "closed": false },
+      "wednesday": { "open": "11:00", "close": "19:00", "closed": false },
+      "thursday": { "open": "11:00", "close": "19:00", "closed": false },
+      "friday": { "open": "11:00", "close": "20:00", "closed": false },
+      "saturday": { "open": "09:00", "close": "18:00", "closed": false },
+      "sunday": { "open": "11:00", "close": "17:00", "closed": false }
+    },
+    "services": ["service-facial-45", "service-haircut-90", "service-manicure-30"],
+    "resources": ["salon-u1", "salon-u2", "salon-u3"],
+    "staffIds": ["staff-esthetician-1", "staff-stylist-1"],
+    "settings": {
+      "allowOnlineBooking": true,
+      "requireDeposit": false,
+      "cancellationPolicy": "24h",
+      "autoConfirmBookings": true,
+      "maxDailyBookings": 30
+    }
+  },
+  {
+    "id": "branch-mobile",
+    "name": "Mobile Wellness Services",
+    "type": "MOBILE",
+    "status": "ACTIVE",
+    "isMain": false,
+    "isActive": true,
+    "address": {
+      "street": "Service Area: Greater Los Angeles",
+      "city": "Los Angeles",
+      "state": "CA",
+      "country": "United States",
+      "postalCode": "90000"
+    },
+    "phone": "+1-555-0004",
+    "email": "mobile@spa.com",
+    "coordinates": null,
+    "operatingHours": {
+      "monday": { "open": "08:00", "close": "20:00", "closed": false },
+      "tuesday": { "open": "08:00", "close": "20:00", "closed": false },
+      "wednesday": { "open": "08:00", "close": "20:00", "closed": false },
+      "thursday": { "open": "08:00", "close": "20:00", "closed": false },
+      "friday": { "open": "08:00", "close": "20:00", "closed": false },
+      "saturday": { "open": "09:00", "close": "18:00", "closed": false },
+      "sunday": { "open": "10:00", "close": "16:00", "closed": false }
+    },
+    "services": ["service-massage-60", "service-consultation-30"],
+    "resources": ["mobile-kit-1", "mobile-kit-2"],
+    "staffIds": ["staff-parttime-1"],
+    "settings": {
+      "allowOnlineBooking": true,
+      "requireDeposit": true,
+      "cancellationPolicy": "72h",
+      "autoConfirmBookings": false,
+      "maxDailyBookings": 8,
+      "travelRadius": 25,
+      "minimumBookingAmount": 100
+    }
+  }
+]
