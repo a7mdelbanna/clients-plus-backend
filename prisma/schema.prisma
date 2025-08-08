@@ -51,6 +51,7 @@ model Company {
   branches       Branch[]
   clients        Client[]
   services       Service[]
+  serviceCategories ServiceCategory[]
   staff          Staff[]
   appointments   Appointment[]
   invoices       Invoice[]
@@ -165,6 +166,7 @@ model Branch {
   // Relations
   primaryStaff   Staff[]          @relation("StaffPrimaryBranch")
   staffAssignments StaffBranch[]  @relation("StaffBranchAssignments")
+  staffSchedules StaffSchedule[]
   appointments   Appointment[]
   serviceBranches ServiceBranch[]
   inventories    Inventory[]
@@ -251,13 +253,18 @@ model Staff {
   
   // Basic information - Enhanced to match Firebase schema
   name           String           // Primary name (Arabic support)
+  nameAr         String?          // Arabic name variant
   firstName      String?
   lastName       String?
   middleName     String?
+  title          String?          // Job title
   specialization String?          // What customers see during online booking
   email          String?
   phone          String?
+  mobile         String?          // Additional mobile number
   avatar         String?
+  image          String?          // Profile image URL (Firebase compatibility)
+  bio            String?          // Staff bio/description
   
   // Employment details
   employeeId     String?
@@ -282,7 +289,6 @@ model Staff {
   specializations String[]
   certifications Json?
   qualifications String?
-  bio            String?
   
   // Schedule Management - Enhanced
   isScheduled    Boolean          @default(false)
@@ -313,6 +319,7 @@ model Staff {
   // Display and ordering
   color          String?          // For calendar display
   displayOrder   Int?             // For staff ordering in UI
+  order          Int              @default(0) // Firebase-style order field
   
   // Services count cache
   servicesCount  Int              @default(0)
@@ -339,6 +346,8 @@ model Staff {
   @@index([accessLevel])
   @@index([status])
   @@index([isActive])
+  @@index([email])
+  @@index([order])
 }
 
 // ============================================================================
@@ -346,48 +355,119 @@ model Staff {
 // ============================================================================
 
 model Service {
-  id             String           @id @default(cuid())
+  id              String @id @default(cuid())
   
   // Multi-tenant relationship
-  companyId      String
-  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
-  // Basic information
-  name           String
-  description    String?
-  category       String?
+  // Category relationship
+  categoryId      String?
+  category        ServiceCategory? @relation(fields: [categoryId], references: [id])
   
-  // Pricing
-  price          Decimal          @db.Decimal(10, 2)
-  duration       Int              // Duration in minutes
+  // Basic information - Enhanced to match Firebase
+  name            String           // Primary name (Arabic)
+  nameAr          String?          // Deprecated - kept for backward compatibility
+  description     String?
+  descriptionAr   String?
   
-  // Service settings
-  maxAdvanceBooking Int?          // Days in advance
-  minAdvanceBooking Int?          // Minimum hours in advance
-  bufferTime     Int?             // Buffer time in minutes
+  // Multi-language support
+  translations    Json?            // {en: string, fr: string, [key: string]: string}
   
-  // Availability
-  isActive       Boolean          @default(true)
-  isOnline       Boolean          @default(false)
+  // Branch assignments - Enhanced multi-branch support
+  branchId        String?          // Deprecated - kept for backward compatibility
+  branchIds       String[]         @default([]) // Multiple branch assignments
   
-  // Resources and requirements
-  roomRequired   Boolean          @default(false)
-  equipmentRequired String?
+  // Pricing - Enhanced pricing structure
+  startingPrice   Decimal          @db.Decimal(10, 2) // Base price
+  priceRange      Json?            // {min: number, max: number}
+  
+  // Duration - Enhanced structure
+  duration        Json             // {hours: number, minutes: number}
+  
+  // Service type and API integration
+  type            ServiceType      @default(APPOINTMENT)
+  apiId           String?          // External API integration
+  
+  // Online booking settings - Enhanced
+  onlineBooking   Json             // Complete online booking configuration
+  
+  // Images and media
+  images          Json?            // Array of image objects with metadata
+  
+  // Advanced service options
+  invoiceName     String?          // Custom invoice name
+  taxSystem       String?          // Tax system configuration
+  vat             Decimal?         @db.Decimal(5, 4) // VAT rate
+  followUpDays    Int?             // Follow-up period in days
+  autoDeduction   Boolean          @default(false) // Automatic inventory deduction
+  
+  // Display and ordering
+  color           String?          // For calendar and UI display
+  order           Int              @default(0) // Display order
+  
+  // Status
+  active          Boolean          @default(true)
   
   // Metadata
-  color          String?          // For calendar display
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdBy       String?          // User who created the service
 
   // Relations
-  branches       ServiceBranch[]
-  staff          StaffService[]
-  appointments   Appointment[]
+  branches        ServiceBranch[]
+  staffServices   StaffService[]
+  appointments    Appointment[]
 
   @@map("services")
   @@index([companyId])
-  @@index([isActive])
-  @@index([category])
+  @@index([categoryId])
+  @@index([active])
+  @@index([type])
+  @@index([order])
+}
+
+model ServiceCategory {
+  id              String @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId       String
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Branch assignment for multi-branch support
+  branchId        String?
+  
+  // Basic information
+  name            String
+  nameAr          String?
+  
+  // Online booking customization
+  useOnlineBookingName Boolean @default(false)
+  onlineBookingName    String?
+  
+  // Category metadata
+  servicesCount   Int              @default(0) // Cached count
+  description     String?
+  color           String?          // For UI display
+  icon            String?          // Icon identifier
+  order           Int              @default(0) // Display order
+  
+  // Status
+  active          Boolean          @default(true)
+  
+  // Metadata
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdBy       String?          // User who created the category
+
+  // Relations
+  services        Service[]
+
+  @@map("service_categories")
+  @@index([companyId])
+  @@index([branchId])
+  @@index([active])
+  @@index([order])
 }
 
 // ============================================================================
@@ -435,8 +515,12 @@ model StaffService {
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   
-  // Custom pricing for this staff member
-  customPrice Decimal? @db.Decimal(10, 2)
+  // Custom pricing and duration for this staff member
+  price     Decimal? @db.Decimal(10, 2) // Override service price
+  duration  Json?    // Override service duration {hours: number, minutes: number}
+  
+  // Bill of materials reference
+  billOfMaterials String?
   
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -452,6 +536,9 @@ model StaffSchedule {
   
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   
   // Date range for this schedule
   startDate DateTime
@@ -480,8 +567,10 @@ model StaffSchedule {
   
   @@map("staff_schedules")
   @@index([staffId])
+  @@index([branchId])
   @@index([startDate])
   @@index([dayOfWeek])
+  @@unique([staffId, branchId, dayOfWeek])
 }
 
 // ============================================================================
@@ -954,6 +1043,12 @@ enum BranchType {
 enum BranchStatus {
   ACTIVE
   INACTIVE
+}
+
+// Service-specific enums
+enum ServiceType {
+  APPOINTMENT
+  GROUP_EVENT
 }
 
 // ============================================================================

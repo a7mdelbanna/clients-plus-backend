@@ -25,6 +25,8 @@ import clientRoutes from './routes/client.routes';
 import projectRoutes from './routes/project.routes';
 import invoiceRoutes from './routes/invoice.routes';
 import branchRoutes from './routes/branch.routes';
+import serviceRoutes from './routes/service.routes';
+import staffRoutes from './routes/staff.routes';
 import healthRoutes from './routes/health.routes';
 
 class App {
@@ -108,6 +110,8 @@ class App {
     this.app.use(`${apiPrefix}/auth`, authRoutes);
     this.app.use(`${apiPrefix}/companies`, companyRoutes);
     this.app.use(`${apiPrefix}`, branchRoutes); // Mount branch routes directly under api prefix
+    this.app.use(`${apiPrefix}/services`, serviceRoutes);
+    this.app.use(`${apiPrefix}/staff`, staffRoutes);
     this.app.use(`${apiPrefix}/users`, userRoutes);
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);

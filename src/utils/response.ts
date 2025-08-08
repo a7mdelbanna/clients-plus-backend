@@ -105,3 +105,22 @@ export class ResponseHelper {
     return this.error(res, message, 500);
   }
 }
+
+// Utility functions for JSON responses (not for Express Response objects)
+export function successResponse<T>(data?: T, message?: string): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+    message,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function errorResponse(error: string, data?: any): ApiResponse {
+  return {
+    success: false,
+    error,
+    data,
+    timestamp: new Date().toISOString(),
+  };
+}
