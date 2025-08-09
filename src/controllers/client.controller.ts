@@ -494,62 +494,25 @@ export class ClientController {
       const { page, limit } = extractPagination(req);
       const { select } = extractFieldSelection(req);
       
-      // Build filters from query parameters
-      const filters: any = {
-        companyId: req.user.companyId,
-        isActive: true
-      };
-
-      // Add optional filters
-      if (req.query.status) {
-        filters.status = req.query.status;
-      }
+      // Build filter object for the service
+      const filter: any = {};
+      
       if (req.query.search) {
-        const searchTerm = req.query.search as string;
-        filters.OR = [
-          { firstName: { contains: searchTerm, mode: 'insensitive' } },
-          { lastName: { contains: searchTerm, mode: 'insensitive' } },
-          { email: { contains: searchTerm, mode: 'insensitive' } },
-          { phone: { contains: searchTerm, mode: 'insensitive' } }
-        ];
+        filter.searchTerm = req.query.search as string;
+      }
+      if (req.query.status && req.query.status !== 'all') {
+        filter.status = req.query.status;
       }
       if (req.query.gender) {
-        filters.gender = req.query.gender;
+        filter.gender = req.query.gender;
       }
 
-      // Build query options
-      const queryOptions: any = {
-        where: filters,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' }
-      };
-
-      // Add field selection if specified
-      if (select && Object.keys(select).length > 0) {
-        queryOptions.select = select;
-      } else {
-        // Default fields to return for performance
-        queryOptions.select = {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          status: true,
-          gender: true,
-          createdAt: true,
-          updatedAt: true
-        };
-      }
-
-      // Execute queries in parallel for better performance
-      const [clients, totalCount] = await Promise.all([
-        clientService.findManyClients(queryOptions),
-        clientService.countClients(filters)
-      ]);
-
-      const result = PaginationService.paginate(clients, totalCount, page, limit);
+      // Get paginated results directly from the service
+      const result = await clientService.getClients(
+        req.user?.companyId!,
+        filter,
+        { page, limit }
+      );
 
       res.status(200).json({
         success: true,

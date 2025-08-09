@@ -1,6 +1,9 @@
 import { Response } from 'express';
 import { ApiResponse, PaginatedResponse } from '../types';
 
+// Re-export types for convenience
+export { ApiResponse, PaginatedResponse } from '../types';
+
 export class ResponseHelper {
   /**
    * Send success response
@@ -106,8 +109,65 @@ export class ResponseHelper {
   }
 }
 
+// Express Response helper functions - support both old and new signatures
+export function successResponse<T>(
+  resOrData?: Response | T,
+  messageOrData?: string | T,
+  data?: T,
+  statusCode: number = 200
+): Response<ApiResponse<T>> | ApiResponse<T> {
+  // New signature: (res, message, data?, statusCode?)
+  if (resOrData && typeof resOrData === 'object' && 'status' in resOrData) {
+    const res = resOrData as Response;
+    const message = messageOrData as string;
+    return res.status(statusCode).json({
+      success: true,
+      data,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  
+  // Old signature: (data?, message?)
+  return {
+    success: true,
+    data: resOrData as T,
+    message: messageOrData as string,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function errorResponse(
+  resOrError?: Response | string,
+  errorOrData?: string | any,
+  statusCodeOrData?: number | any,
+  data?: any
+): Response<ApiResponse> | ApiResponse {
+  // New signature: (res, error, statusCode?, data?)
+  if (resOrError && typeof resOrError === 'object' && 'status' in resOrError) {
+    const res = resOrError as Response;
+    const error = errorOrData as string;
+    const statusCode = typeof statusCodeOrData === 'number' ? statusCodeOrData : 400;
+    const responseData = typeof statusCodeOrData === 'number' ? data : statusCodeOrData;
+    return res.status(statusCode).json({
+      success: false,
+      error,
+      data: responseData,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  
+  // Old signature: (error, data?)
+  return {
+    success: false,
+    error: resOrError as string,
+    data: errorOrData,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // Utility functions for JSON responses (not for Express Response objects)
-export function successResponse<T>(data?: T, message?: string): ApiResponse<T> {
+export function createSuccessResponse<T>(data?: T, message?: string): ApiResponse<T> {
   return {
     success: true,
     data,
@@ -116,7 +176,7 @@ export function successResponse<T>(data?: T, message?: string): ApiResponse<T> {
   };
 }
 
-export function errorResponse(error: string, data?: any): ApiResponse {
+export function createErrorResponse(error: string, data?: any): ApiResponse {
   return {
     success: false,
     error,

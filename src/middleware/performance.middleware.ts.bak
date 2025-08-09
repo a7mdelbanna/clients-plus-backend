@@ -3,13 +3,15 @@ import { performance } from 'perf_hooks';
 import { monitoringService } from '../services/monitoring.service';
 import { logger } from '../config/logger';
 
+import { UserRole } from '@prisma/client';
+
 interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
     userId: string;
     companyId: string;
-    role: string;
+    role: UserRole;
     email: string;
+    permissions?: string[];
   };
 }
 

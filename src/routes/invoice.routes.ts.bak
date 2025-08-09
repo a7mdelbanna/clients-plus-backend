@@ -2,13 +2,13 @@ import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { invoiceController } from '../controllers/invoice.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { tenantIsolation } from '../middleware/tenant.middleware';
+import { validateTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
 // Apply authentication and tenant validation to all routes
 router.use(authenticateToken);
-// router.use(tenantIsolation); // Temporarily disabled - middleware not properly exported
+router.use(validateTenant);
 
 /**
  * @swagger

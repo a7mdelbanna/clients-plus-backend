@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { notificationQueue, NotificationJob, NotificationJobData } from '../services/queue.service';
 import { whatsappService } from '../services/whatsapp.service';
 import { messageTemplateService } from '../templates/messages';
-import { validateData } from '../utils/validation';
+import { validateRequest } from '../utils/validation';
 import { z } from 'zod';
 
 const prisma = new PrismaClient();
@@ -57,7 +57,7 @@ export class NotificationController {
    */
   async sendNotification(req: Request, res: Response): Promise<void> {
     try {
-      const validatedData = validateData(SendNotificationSchema, req.body);
+      const validatedData = validateRequest(SendNotificationSchema, req.body);
       const user = (req as any).user;
       
       // Validate recipient based on notification type
@@ -131,7 +131,7 @@ export class NotificationController {
    */
   async scheduleNotification(req: Request, res: Response): Promise<void> {
     try {
-      const validatedData = validateData(ScheduleNotificationSchema, req.body);
+      const validatedData = validateRequest(ScheduleNotificationSchema, req.body);
       const user = (req as any).user;
       
       const scheduledFor = new Date(validatedData.scheduledFor);
@@ -196,7 +196,7 @@ export class NotificationController {
    */
   async sendBulkNotifications(req: Request, res: Response): Promise<void> {
     try {
-      const validatedData = validateData(BulkNotificationSchema, req.body);
+      const validatedData = validateRequest(BulkNotificationSchema, req.body);
       const user = (req as any).user;
 
       // Validate each recipient

@@ -79,3 +79,45 @@ export const CustomValidators = {
     return enumValues.includes(value);
   },
 };
+
+/**
+ * Validate request using Zod schema (middleware factory)
+ */
+export const validateRequest = (schema: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validatedData = schema.parse(req.body);
+      req.body = validatedData;
+      next();
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const formattedErrors = error.errors.map((err: any) => ({
+          field: err.path.join('.'),
+          message: err.message,
+          value: err.input,
+        }));
+        return ResponseHelper.validationError(res, formattedErrors);
+      }
+      return ResponseHelper.serverError(res, 'Validation failed');
+    }
+  };
+};
+
+/**
+ * Validate data using Zod schema (synchronous validation)
+ */
+export const validateData = (schema: any, data: any) => {
+  try {
+    return schema.parse(data);
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      const formattedErrors = error.errors.map((err: any) => ({
+        field: err.path.join('.'),
+        message: err.message,
+        value: err.input,
+      }));
+      throw new Error(`Validation failed: ${JSON.stringify(formattedErrors)}`);
+    }
+    throw error;
+  }
+};

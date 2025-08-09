@@ -1,4 +1,4 @@
-import Redis from 'redis';
+import { createClient, RedisClientType } from 'redis';
 import { logger } from '../config/logger';
 
 interface CacheOptions {
@@ -7,7 +7,7 @@ interface CacheOptions {
 }
 
 export class RedisService {
-  private redis: Redis.RedisClientType;
+  private redis: RedisClientType;
   private defaultTTL = 3600; // 1 hour
   private isConnected = false;
   
@@ -26,7 +26,7 @@ export class RedisService {
       maxRetriesPerRequest: 3
     };
 
-    this.redis = Redis.createClient(redisConfig);
+    this.redis = createClient(redisConfig);
     this.setupEventHandlers();
   }
 

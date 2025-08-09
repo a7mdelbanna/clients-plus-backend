@@ -47,7 +47,12 @@ class OptimizedDatabase {
           url: this.buildConnectionString(),
         },
       },
-      log: this.getLogConfig(),
+      log: QUERY_OPTIMIZATION.enableQueryLogging ? [
+        { emit: 'event', level: 'query' },
+        { emit: 'event', level: 'info' },
+        { emit: 'event', level: 'warn' },
+        { emit: 'event', level: 'error' }
+      ] : [],
       errorFormat: 'pretty',
     });
 
@@ -91,73 +96,10 @@ class OptimizedDatabase {
     return url.toString();
   }
 
-  private getLogConfig(): any[] {
-    const logConfig: any[] = [];
-    
-    if (QUERY_OPTIMIZATION.enableQueryLogging) {
-      logConfig.push({
-        emit: 'event',
-        level: 'query',
-      });
-      
-      logConfig.push({
-        emit: 'event',
-        level: 'info',
-      });
-      
-      logConfig.push({
-        emit: 'event',
-        level: 'warn',
-      });
-      
-      logConfig.push({
-        emit: 'event',
-        level: 'error',
-      });
-    }
-
-    return logConfig;
-  }
 
   private setupQueryInterceptors(): void {
-    if (QUERY_OPTIMIZATION.enableQueryLogging) {
-      this.prisma.$on('query', (e) => {
-        const duration = parseInt(e.duration);
-        
-        // Update metrics
-        if (QUERY_OPTIMIZATION.enableMetrics) {
-          this.updateQueryMetrics(duration);
-        }
-        
-        // Log slow queries
-        if (duration > QUERY_OPTIMIZATION.slowQueryThreshold) {
-          logger.warn('Slow query detected', {
-            query: e.query,
-            duration: `${duration}ms`,
-            params: e.params,
-          });
-          
-          this.queryMetrics.slowQueries++;
-        } else {
-          logger.debug('Query executed', {
-            query: e.query.substring(0, 100) + '...',
-            duration: `${duration}ms`,
-          });
-        }
-      });
-
-      this.prisma.$on('info', (e) => {
-        logger.info('Prisma info:', e);
-      });
-
-      this.prisma.$on('warn', (e) => {
-        logger.warn('Prisma warning:', e);
-      });
-
-      this.prisma.$on('error', (e) => {
-        logger.error('Prisma error:', e);
-      });
-    }
+    // Only set up query interceptors if logging is enabled
+    // The log configuration in the constructor determines what events are emitted
   }
 
   private updateQueryMetrics(duration: number): void {
@@ -223,7 +165,7 @@ class OptimizedDatabase {
       
       logger.info('Database optimizations applied');
     } catch (error) {
-      logger.warn('Database optimization warning:', error.message);
+      logger.warn('Database optimization warning:', (error as Error).message);
     }
   }
 
@@ -242,7 +184,7 @@ class OptimizedDatabase {
       logger.info('PostgreSQL optimizations applied');
     } catch (error) {
       // Non-critical errors, log as warning
-      logger.warn('PostgreSQL optimization warning:', error.message);
+      logger.warn('PostgreSQL optimization warning:', (error as Error).message);
     }
   }
 

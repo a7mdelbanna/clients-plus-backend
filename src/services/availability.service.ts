@@ -379,7 +379,7 @@ export class AvailabilityService {
           },
           ...(serviceIds?.length && {
             services: {
-              path: '$[*].serviceId',
+              path: ['$[*]', 'serviceId'],
               array_contains: serviceIds
             }
           })

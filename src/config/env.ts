@@ -121,8 +121,8 @@ export const env: EnvConfig = {
   JWT_REFRESH_EXPIRES_IN: getEnvVar('JWT_REFRESH_EXPIRES_IN', '30d'),
 
   // CORS
-  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', 'http://localhost:3001'),
-  ALLOWED_ORIGINS: getEnvArray('ALLOWED_ORIGINS', ['http://localhost:3001']),
+  CORS_ORIGIN: getEnvVar('CORS_ORIGIN', 'http://localhost:5175'),
+  ALLOWED_ORIGINS: getEnvArray('ALLOWED_ORIGINS', ['http://localhost:5175', 'http://localhost:3001']),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: getEnvNumber('RATE_LIMIT_WINDOW_MS', 900000), // 15 minutes

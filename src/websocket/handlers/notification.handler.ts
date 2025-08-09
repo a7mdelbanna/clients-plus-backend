@@ -1,404 +1,371 @@
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { logger } from '../../config/logger';
-import { WebSocketServer } from '../socket.server';
 
-export interface Notification {
-  id: string;
-  userId: string;
-  companyId: string;
-  type: NotificationType;
+interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  companyId?: string;
+  userRole?: string;
+}
+
+interface NotificationData {
+  id?: string;
   title: string;
   message: string;
-  data?: Record<string, any>;
-  isRead: boolean;
-  priority: NotificationPriority;
+  type: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  data?: any;
+  targetUserId?: string;
+  targetRole?: string;
   expiresAt?: Date;
-  createdAt: Date;
-  readAt?: Date;
+  actionUrl?: string;
+  actionLabel?: string;
 }
 
-export enum NotificationType {
-  APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
-  APPOINTMENT_CANCELLED = 'APPOINTMENT_CANCELLED',
-  APPOINTMENT_CONFIRMED = 'APPOINTMENT_CONFIRMED',
-  CLIENT_CHECKED_IN = 'CLIENT_CHECKED_IN',
-  STAFF_LATE = 'STAFF_LATE',
-  STAFF_ABSENT = 'STAFF_ABSENT',
-  PAYMENT_RECEIVED = 'PAYMENT_RECEIVED',
-  PAYMENT_FAILED = 'PAYMENT_FAILED',
-  INVENTORY_LOW = 'INVENTORY_LOW',
-  SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE',
-  SECURITY_ALERT = 'SECURITY_ALERT',
-  CUSTOM = 'CUSTOM'
-}
-
-export enum NotificationPriority {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  URGENT = 'URGENT'
-}
-
-export interface BroadcastMessage {
-  id: string;
-  companyId: string;
+interface BroadcastData {
   title: string;
   message: string;
-  type: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
+  type: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  data?: any;
   targetRoles?: string[];
-  targetBranches?: string[];
-  createdAt: Date;
   expiresAt?: Date;
 }
 
-export class NotificationSocketHandler {
-  private subscriptions: Set<string> = new Set(); // socketIds subscribed to notifications
+class NotificationHandler {
+  public register(socket: AuthenticatedSocket, io: Server): void {
+    // Handle sending notifications to specific users
+    socket.on('send_notification', (data: NotificationData) => {
+      this.handleSendNotification(socket, io, data);
+    });
 
-  constructor(private socketServer: WebSocketServer) {}
+    // Handle broadcasting to company
+    socket.on('broadcast_to_company', (data: BroadcastData) => {
+      this.handleBroadcastToCompany(socket, io, data);
+    });
 
-  public handleSubscription(socket: Socket): void {
+    // Handle broadcasting to specific roles
+    socket.on('broadcast_to_role', (data: BroadcastData & { role: string }) => {
+      this.handleBroadcastToRole(socket, io, data);
+    });
+
+    // Handle notification acknowledgment
+    socket.on('acknowledge_notification', (data: { notificationId: string }) => {
+      this.handleAcknowledgeNotification(socket, io, data);
+    });
+
+    // Handle marking notification as read
+    socket.on('mark_notification_read', (data: { notificationId: string }) => {
+      this.handleMarkNotificationRead(socket, io, data);
+    });
+
+    // Handle clearing all notifications
+    socket.on('clear_all_notifications', () => {
+      this.handleClearAllNotifications(socket, io);
+    });
+
+    // Handle system alerts
+    socket.on('send_system_alert', (data: NotificationData) => {
+      this.handleSendSystemAlert(socket, io, data);
+    });
+
+    logger.debug(`Notification event handlers registered for socket ${socket.id}`);
+  }
+
+  private handleSendNotification(socket: AuthenticatedSocket, io: Server, data: NotificationData): void {
     try {
-      const { userId } = (socket as any).data.user;
+      const { companyId, userRole } = socket;
       
-      // Add to subscriptions
-      this.subscriptions.add(socket.id);
+      if (!companyId) {
+        socket.emit('error', { message: 'Company ID not found', code: 'MISSING_COMPANY' });
+        return;
+      }
+
+      // Check if user has permission to send notifications
+      if (!this.canSendNotification(userRole)) {
+        socket.emit('error', { message: 'Insufficient permissions to send notifications', code: 'INSUFFICIENT_PERMISSIONS' });
+        return;
+      }
+
+      const notificationId = data.id || `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Join user notification room
-      socket.join(`user:${userId}:notifications`);
-
-      socket.emit('notifications:subscribed', {
-        message: 'Subscribed to notifications'
-      });
-
-      logger.info(`Socket ${socket.id} subscribed to notifications`);
-    } catch (error) {
-      logger.error('Error handling notification subscription:', error);
-      socket.emit('error', {
-        message: 'Failed to subscribe to notifications',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  public handleUnsubscription(socket: Socket): void {
-    try {
-      const { userId } = (socket as any).data.user;
-      
-      // Remove from subscriptions
-      this.subscriptions.delete(socket.id);
-      
-      // Leave notification room
-      socket.leave(`user:${userId}:notifications`);
-
-      socket.emit('notifications:unsubscribed', {
-        message: 'Unsubscribed from notifications'
-      });
-
-      logger.info(`Socket ${socket.id} unsubscribed from notifications`);
-    } catch (error) {
-      logger.error('Error handling notification unsubscription:', error);
-    }
-  }
-
-  public markAsRead(socket: Socket, notificationId: string): void {
-    try {
-      const { userId, companyId } = (socket as any).data.user;
-      
-      // Emit to user's other sessions that notification was read
-      this.socketServer.emitToRoom(
-        `user:${userId}:notifications`,
-        'notification:marked-read',
-        {
-          notificationId,
-          readAt: new Date(),
-          userId
-        }
-      );
-
-      socket.emit('notification:read-confirmed', {
-        notificationId,
-        message: 'Notification marked as read'
-      });
-
-      logger.info(`Notification ${notificationId} marked as read by user ${userId}`);
-    } catch (error) {
-      logger.error('Error marking notification as read:', error);
-      socket.emit('error', {
-        message: 'Failed to mark notification as read',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  public handleDisconnection(socket: Socket): void {
-    // Clean up subscriptions
-    this.subscriptions.delete(socket.id);
-  }
-
-  // Methods to emit notification events
-  public sendNotification(userId: string, notification: Notification): void {
-    try {
-      // Send to specific user
-      this.socketServer.emitToRoom(
-        `user:${userId}:notifications`,
-        'notification:new',
-        notification
-      );
-
-      logger.info(`Notification sent to user ${userId}: ${notification.title}`);
-    } catch (error) {
-      logger.error('Error sending notification:', error);
-    }
-  }
-
-  public sendBulkNotifications(notifications: Notification[]): void {
-    try {
-      // Group notifications by user for efficient emission
-      const notificationsByUser = notifications.reduce((acc, notification) => {
-        if (!acc[notification.userId]) {
-          acc[notification.userId] = [];
-        }
-        acc[notification.userId].push(notification);
-        return acc;
-      }, {} as Record<string, Notification[]>);
-
-      // Send to each user
-      Object.entries(notificationsByUser).forEach(([userId, userNotifications]) => {
-        this.socketServer.emitToRoom(
-          `user:${userId}:notifications`,
-          'notifications:bulk',
-          {
-            notifications: userNotifications,
-            count: userNotifications.length
-          }
-        );
-      });
-
-      logger.info(`Bulk notifications sent to ${Object.keys(notificationsByUser).length} users`);
-    } catch (error) {
-      logger.error('Error sending bulk notifications:', error);
-    }
-  }
-
-  public broadcastToCompany(companyId: string, message: BroadcastMessage): void {
-    try {
-      // Broadcast to all users in the company
-      this.socketServer.emitToRoom(
-        `company:${companyId}`,
-        'broadcast:message',
-        message
-      );
-
-      logger.info(`Broadcast message sent to company ${companyId}: ${message.title}`);
-    } catch (error) {
-      logger.error('Error broadcasting to company:', error);
-    }
-  }
-
-  public sendToRole(companyId: string, role: string, notification: Notification): void {
-    try {
-      // Send to users with specific role in the company
-      this.socketServer.emitToRoom(
-        `company:${companyId}:role:${role}`,
-        'notification:role-specific',
-        notification
-      );
-
-      logger.info(`Role-specific notification sent to ${role} in company ${companyId}`);
-    } catch (error) {
-      logger.error('Error sending role-specific notification:', error);
-    }
-  }
-
-  public sendToBranch(branchId: string, notification: Notification): void {
-    try {
-      // Send to all users in a specific branch
-      this.socketServer.emitToRoom(
-        `branch:${branchId}`,
-        'notification:branch-specific',
-        notification
-      );
-
-      logger.info(`Branch-specific notification sent to branch ${branchId}`);
-    } catch (error) {
-      logger.error('Error sending branch-specific notification:', error);
-    }
-  }
-
-  public sendAppointmentReminder(userId: string, appointmentData: any): void {
-    try {
-      const notification: Notification = {
-        id: `reminder_${appointmentData.id}_${Date.now()}`,
-        userId,
-        companyId: appointmentData.companyId,
-        type: NotificationType.APPOINTMENT_REMINDER,
-        title: 'Appointment Reminder',
-        message: `Your appointment is scheduled for ${appointmentData.date} at ${appointmentData.startTime}`,
-        data: appointmentData,
-        isRead: false,
-        priority: NotificationPriority.HIGH,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-      };
-
-      this.sendNotification(userId, notification);
-
-      // Also send push notification data for mobile apps
-      this.socketServer.emitToRoom(
-        `user:${userId}:notifications`,
-        'push-notification',
-        {
-          title: notification.title,
-          body: notification.message,
-          data: notification.data,
-          priority: 'high',
-          sound: 'default'
-        }
-      );
-
-      logger.info(`Appointment reminder sent to user ${userId}`);
-    } catch (error) {
-      logger.error('Error sending appointment reminder:', error);
-    }
-  }
-
-  public sendPaymentNotification(userId: string, paymentData: any, success: boolean): void {
-    try {
-      const notification: Notification = {
-        id: `payment_${paymentData.id}_${Date.now()}`,
-        userId,
-        companyId: paymentData.companyId,
-        type: success ? NotificationType.PAYMENT_RECEIVED : NotificationType.PAYMENT_FAILED,
-        title: success ? 'Payment Received' : 'Payment Failed',
-        message: success 
-          ? `Payment of $${paymentData.amount} has been received`
-          : `Payment of $${paymentData.amount} failed. Please try again.`,
-        data: paymentData,
-        isRead: false,
-        priority: success ? NotificationPriority.MEDIUM : NotificationPriority.HIGH,
-        createdAt: new Date()
-      };
-
-      this.sendNotification(userId, notification);
-
-      logger.info(`Payment notification sent to user ${userId}: ${success ? 'SUCCESS' : 'FAILED'}`);
-    } catch (error) {
-      logger.error('Error sending payment notification:', error);
-    }
-  }
-
-  public sendInventoryAlert(companyId: string, inventoryData: any): void {
-    try {
-      const notification: Notification = {
-        id: `inventory_${inventoryData.productId}_${Date.now()}`,
-        userId: '', // Will be sent to admin/manager roles
-        companyId,
-        type: NotificationType.INVENTORY_LOW,
-        title: 'Low Inventory Alert',
-        message: `${inventoryData.productName} is running low (${inventoryData.currentStock} remaining)`,
-        data: inventoryData,
-        isRead: false,
-        priority: NotificationPriority.MEDIUM,
-        createdAt: new Date()
-      };
-
-      // Send to admin and manager roles
-      this.sendToRole(companyId, 'ADMIN', notification);
-      this.sendToRole(companyId, 'MANAGER', notification);
-
-      logger.info(`Inventory alert sent to company ${companyId} managers`);
-    } catch (error) {
-      logger.error('Error sending inventory alert:', error);
-    }
-  }
-
-  public sendSystemAlert(message: string, priority: NotificationPriority = NotificationPriority.MEDIUM): void {
-    try {
       const notification = {
-        id: `system_${Date.now()}`,
-        type: NotificationType.SYSTEM_MAINTENANCE,
-        title: 'System Alert',
-        message,
-        priority,
-        createdAt: new Date()
-      };
-
-      // Broadcast to all connected clients
-      this.socketServer.broadcastToAll('system:alert', notification);
-
-      logger.info(`System alert broadcasted: ${message}`);
-    } catch (error) {
-      logger.error('Error sending system alert:', error);
-    }
-  }
-
-  public sendSecurityAlert(companyId: string, alertData: any): void {
-    try {
-      const notification: Notification = {
-        id: `security_${companyId}_${Date.now()}`,
-        userId: '', // Will be sent to admin roles
+        id: notificationId,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        priority: data.priority || 'MEDIUM',
+        data: data.data,
+        sentBy: socket.userId,
         companyId,
-        type: NotificationType.SECURITY_ALERT,
-        title: 'Security Alert',
-        message: alertData.message || 'Security event detected',
-        data: alertData,
-        isRead: false,
-        priority: NotificationPriority.URGENT,
-        createdAt: new Date()
+        expiresAt: data.expiresAt,
+        actionUrl: data.actionUrl,
+        actionLabel: data.actionLabel,
+        timestamp: new Date().toISOString(),
       };
 
-      // Send to admin roles only
-      this.sendToRole(companyId, 'ADMIN', notification);
-      this.sendToRole(companyId, 'SUPER_ADMIN', notification);
+      if (data.targetUserId) {
+        // Send to specific user
+        io.to(`user_${data.targetUserId}`).emit('notification:new', notification);
+        logger.info(`Notification sent to user ${data.targetUserId}: ${data.title}`);
+      } else {
+        // Send to all users in company
+        io.to(`company_${companyId}`).emit('notification:new', notification);
+        logger.info(`Company-wide notification sent: ${data.title}`);
+      }
 
-      logger.warn(`Security alert sent to company ${companyId} administrators`);
+      socket.emit('notification_sent_success', {
+        notificationId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
-      logger.error('Error sending security alert:', error);
+      logger.error('Error handling send notification event:', error);
+      socket.emit('error', { message: 'Failed to send notification', code: 'SEND_NOTIFICATION_FAILED' });
     }
   }
 
-  // Utility methods
-  public getActiveSubscriptions(): Set<string> {
-    return this.subscriptions;
-  }
-
-  public getSubscriptionCount(): number {
-    return this.subscriptions.size;
-  }
-
-  public isUserSubscribed(socketId: string): boolean {
-    return this.subscriptions.has(socketId);
-  }
-
-  // Batch operations
-  public markMultipleAsRead(userId: string, notificationIds: string[]): void {
+  private handleBroadcastToCompany(socket: AuthenticatedSocket, io: Server, data: BroadcastData): void {
     try {
-      this.socketServer.emitToRoom(
-        `user:${userId}:notifications`,
-        'notifications:bulk-read',
-        {
-          notificationIds,
-          readAt: new Date()
-        }
-      );
+      const { companyId, userRole } = socket;
+      
+      if (!companyId) {
+        socket.emit('error', { message: 'Company ID not found', code: 'MISSING_COMPANY' });
+        return;
+      }
 
-      logger.info(`${notificationIds.length} notifications marked as read for user ${userId}`);
+      // Check if user has permission to broadcast
+      if (!this.canBroadcast(userRole)) {
+        socket.emit('error', { message: 'Insufficient permissions to broadcast', code: 'INSUFFICIENT_PERMISSIONS' });
+        return;
+      }
+
+      const broadcastId = `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const broadcast = {
+        id: broadcastId,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        priority: data.priority || 'MEDIUM',
+        data: data.data,
+        broadcastBy: socket.userId,
+        companyId,
+        targetRoles: data.targetRoles,
+        expiresAt: data.expiresAt,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (data.targetRoles && data.targetRoles.length > 0) {
+        // Broadcast to specific roles
+        data.targetRoles.forEach(role => {
+          io.to(`role_${role}_${companyId}`).emit('notification:broadcast', broadcast);
+        });
+        logger.info(`Role-based broadcast sent to roles [${data.targetRoles.join(', ')}]: ${data.title}`);
+      } else {
+        // Broadcast to entire company
+        io.to(`company_${companyId}`).emit('notification:broadcast', broadcast);
+        logger.info(`Company-wide broadcast sent: ${data.title}`);
+      }
+
+      socket.emit('broadcast_sent_success', {
+        broadcastId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
-      logger.error('Error marking multiple notifications as read:', error);
+      logger.error('Error handling broadcast to company event:', error);
+      socket.emit('error', { message: 'Failed to send broadcast', code: 'SEND_BROADCAST_FAILED' });
     }
   }
 
-  public clearExpiredNotifications(): void {
+  private handleBroadcastToRole(socket: AuthenticatedSocket, io: Server, data: BroadcastData & { role: string }): void {
     try {
-      // This would typically interact with a database to clean up expired notifications
-      // For now, we'll emit an event to trigger cleanup on the client side
-      this.socketServer.broadcastToAll('notifications:cleanup-expired', {
-        timestamp: new Date()
+      const { companyId, userRole } = socket;
+      
+      if (!companyId) {
+        socket.emit('error', { message: 'Company ID not found', code: 'MISSING_COMPANY' });
+        return;
+      }
+
+      // Check if user has permission to broadcast to roles
+      if (!this.canBroadcastToRole(userRole, data.role)) {
+        socket.emit('error', { message: 'Insufficient permissions to broadcast to this role', code: 'INSUFFICIENT_PERMISSIONS' });
+        return;
+      }
+
+      const broadcastId = `role_broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const broadcast = {
+        id: broadcastId,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        priority: data.priority || 'MEDIUM',
+        data: data.data,
+        broadcastBy: socket.userId,
+        companyId,
+        targetRole: data.role,
+        expiresAt: data.expiresAt,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Broadcast to specific role
+      io.to(`role_${data.role}_${companyId}`).emit('notification:role_broadcast', broadcast);
+
+      socket.emit('role_broadcast_sent_success', {
+        broadcastId,
+        role: data.role,
+        success: true,
+        timestamp: new Date().toISOString(),
       });
 
-      logger.info('Expired notifications cleanup event broadcasted');
+      logger.info(`Role-based broadcast sent to ${data.role}: ${data.title}`);
     } catch (error) {
-      logger.error('Error clearing expired notifications:', error);
+      logger.error('Error handling broadcast to role event:', error);
+      socket.emit('error', { message: 'Failed to send role broadcast', code: 'SEND_ROLE_BROADCAST_FAILED' });
     }
+  }
+
+  private handleAcknowledgeNotification(socket: AuthenticatedSocket, io: Server, data: { notificationId: string }): void {
+    try {
+      const { companyId, userId } = socket;
+      
+      if (!companyId || !userId) {
+        socket.emit('error', { message: 'User or Company ID not found', code: 'MISSING_DATA' });
+        return;
+      }
+
+      const acknowledgment = {
+        notificationId: data.notificationId,
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date().toISOString(),
+      };
+
+      // Notify company room about acknowledgment (for tracking purposes)
+      io.to(`company_${companyId}`).emit('notification:acknowledged', acknowledgment);
+
+      socket.emit('notification_acknowledged_success', {
+        notificationId: data.notificationId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(`Notification acknowledged: ${data.notificationId} by user ${userId}`);
+    } catch (error) {
+      logger.error('Error handling acknowledge notification event:', error);
+      socket.emit('error', { message: 'Failed to acknowledge notification', code: 'ACKNOWLEDGE_NOTIFICATION_FAILED' });
+    }
+  }
+
+  private handleMarkNotificationRead(socket: AuthenticatedSocket, io: Server, data: { notificationId: string }): void {
+    try {
+      const { userId } = socket;
+      
+      if (!userId) {
+        socket.emit('error', { message: 'User ID not found', code: 'MISSING_USER' });
+        return;
+      }
+
+      socket.emit('notification_marked_read_success', {
+        notificationId: data.notificationId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(`Notification marked as read: ${data.notificationId} by user ${userId}`);
+    } catch (error) {
+      logger.error('Error handling mark notification read event:', error);
+      socket.emit('error', { message: 'Failed to mark notification as read', code: 'MARK_NOTIFICATION_READ_FAILED' });
+    }
+  }
+
+  private handleClearAllNotifications(socket: AuthenticatedSocket, io: Server): void {
+    try {
+      const { userId } = socket;
+      
+      if (!userId) {
+        socket.emit('error', { message: 'User ID not found', code: 'MISSING_USER' });
+        return;
+      }
+
+      socket.emit('all_notifications_cleared_success', {
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(`All notifications cleared for user ${userId}`);
+    } catch (error) {
+      logger.error('Error handling clear all notifications event:', error);
+      socket.emit('error', { message: 'Failed to clear all notifications', code: 'CLEAR_NOTIFICATIONS_FAILED' });
+    }
+  }
+
+  private handleSendSystemAlert(socket: AuthenticatedSocket, io: Server, data: NotificationData): void {
+    try {
+      const { companyId, userRole } = socket;
+      
+      if (!companyId) {
+        socket.emit('error', { message: 'Company ID not found', code: 'MISSING_COMPANY' });
+        return;
+      }
+
+      // Check if user has permission to send system alerts
+      if (!this.canSendSystemAlert(userRole)) {
+        socket.emit('error', { message: 'Insufficient permissions to send system alerts', code: 'INSUFFICIENT_PERMISSIONS' });
+        return;
+      }
+
+      const alertId = `system_alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const systemAlert = {
+        id: alertId,
+        title: data.title,
+        message: data.message,
+        type: 'SYSTEM_ALERT',
+        priority: data.priority || 'HIGH',
+        data: data.data,
+        sentBy: socket.userId,
+        companyId,
+        expiresAt: data.expiresAt,
+        actionUrl: data.actionUrl,
+        actionLabel: data.actionLabel,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Send system alert to all admins and managers
+      io.to(`role_ADMIN_${companyId}`).emit('notification:system_alert', systemAlert);
+      io.to(`role_MANAGER_${companyId}`).emit('notification:system_alert', systemAlert);
+
+      socket.emit('system_alert_sent_success', {
+        alertId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info(`System alert sent: ${data.title}`);
+    } catch (error) {
+      logger.error('Error handling send system alert event:', error);
+      socket.emit('error', { message: 'Failed to send system alert', code: 'SEND_SYSTEM_ALERT_FAILED' });
+    }
+  }
+
+  private canSendNotification(userRole?: string): boolean {
+    return ['ADMIN', 'MANAGER', 'STAFF'].includes(userRole || '');
+  }
+
+  private canBroadcast(userRole?: string): boolean {
+    return ['ADMIN', 'MANAGER'].includes(userRole || '');
+  }
+
+  private canBroadcastToRole(userRole?: string, targetRole?: string): boolean {
+    if (userRole === 'ADMIN') return true;
+    if (userRole === 'MANAGER' && targetRole !== 'ADMIN') return true;
+    return false;
+  }
+
+  private canSendSystemAlert(userRole?: string): boolean {
+    return userRole === 'ADMIN';
   }
 }
+
+export const notificationHandler = new NotificationHandler();

@@ -136,18 +136,19 @@ export class AppointmentController {
     try {
       const validation = createAppointmentSchema.safeParse(req.body);
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const data = validation.data;
       const companyId = req.user?.companyId!;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       // Convert string date to Date object
       const appointmentInput: AppointmentInput = {
         ...data,
         companyId,
         date: new Date(data.date),
+        endTime: data.endTime || data.startTime, // Provide default endTime if not specified
         recurringPattern: data.recurringPattern ? {
           ...data.recurringPattern,
           endDate: data.recurringPattern.endDate ? new Date(data.recurringPattern.endDate) : undefined
@@ -177,7 +178,7 @@ export class AppointmentController {
     try {
       const validation = appointmentFilterSchema.safeParse(req.query);
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const filter = validation.data;
@@ -223,11 +224,11 @@ export class AppointmentController {
       const validation = updateAppointmentSchema.safeParse(req.body);
       
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const updates = validation.data;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       // Convert date strings to Date objects
       const updateData: Partial<AppointmentInput> = {
@@ -256,7 +257,7 @@ export class AppointmentController {
     try {
       const { id } = req.params;
       const { reason, cancelledBy } = req.body;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       await this.appointmentService.cancelAppointment(id, userId, reason, cancelledBy);
       
@@ -275,7 +276,7 @@ export class AppointmentController {
     try {
       const { id } = req.params;
       const { newDate, newStartTime, newStaffId } = req.body;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       if (!newDate || !newStartTime) {
         return errorResponse(res, 'New date and start time are required', 400);
@@ -309,7 +310,7 @@ export class AppointmentController {
   async checkInAppointment(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       const appointment = await this.appointmentService.checkInAppointment(id, userId);
       
@@ -327,7 +328,7 @@ export class AppointmentController {
   async startAppointment(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       const appointment = await this.appointmentService.startAppointment(id, userId);
       
@@ -345,7 +346,7 @@ export class AppointmentController {
   async completeAppointment(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       const appointment = await this.appointmentService.completeAppointment(id, userId);
       
@@ -363,7 +364,7 @@ export class AppointmentController {
   async markNoShow(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = req.user?.id!;
+      const userId = req.user?.userId!;
       
       const appointment = await this.appointmentService.markNoShow(id, userId);
       
@@ -384,7 +385,7 @@ export class AppointmentController {
     try {
       const validation = availabilityQuerySchema.safeParse(req.query);
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const query = validation.data;
@@ -467,7 +468,7 @@ export class AppointmentController {
     try {
       const validation = publicBookingSchema.safeParse(req.body);
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const data = validation.data;
@@ -542,7 +543,7 @@ export class AppointmentController {
     try {
       const validation = waitlistSchema.safeParse(req.body);
       if (!validation.success) {
-        return errorResponse(res, 'Validation error', 400, validation.error.errors);
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
       }
       
       const data = validation.data;

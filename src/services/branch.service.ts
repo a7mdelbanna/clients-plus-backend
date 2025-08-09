@@ -557,6 +557,38 @@ export class BranchService {
       },
     });
   }
+
+  /**
+   * Get public branches for a company (for public booking)
+   */
+  async getPublicBranches(companyId: string): Promise<any[]> {
+    try {
+      const branches = await prisma.branch.findMany({
+        where: {
+          companyId,
+          status: BranchStatus.ACTIVE,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          coordinates: true,
+          contact: true,
+          operatingHours: true,
+        },
+        orderBy: [
+          { type: 'asc' }, // MAIN branches first
+          { name: 'asc' },
+        ],
+      });
+
+      return branches;
+    } catch (error) {
+      logger.error('Get public branches error:', error);
+      throw new ApiError(500, 'Failed to retrieve branches', 'FETCH_ERROR');
+    }
+  }
 }
 
 export const branchService = new BranchService();

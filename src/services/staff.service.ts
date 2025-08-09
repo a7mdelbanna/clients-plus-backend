@@ -170,32 +170,6 @@ class StaffService {
           },
         },
       },
-            },
-          },
-        },
-        services: {
-          include: {
-            service: {
-              select: {
-                id: true,
-                name: true,
-                // price: true, // Removed as it may not exist in service model
-                duration: true,
-              },
-            },
-          },
-        },
-        schedules: true,
-        timeOffs: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
     });
 
     // Assign to branches if provided

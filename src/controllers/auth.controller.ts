@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { UserRole } from '@prisma/client';
 import { authService, RegisterUserData, LoginCredentials } from '../services/auth.service';
-import { extractTokenFromHeader } from '../utils/jwt.utils';
+import { extractTokenFromHeader, generateTokenPair, generateTokenId } from '../utils/jwt.utils';
 import { logger } from '../config/logger';
+import firebaseService from '../config/firebase';
 
 export class AuthController {
   /**
@@ -516,15 +517,151 @@ export class AuthController {
   }
 
   /**
+   * Verify Firebase ID token and create Express session
+   * This endpoint bridges Firebase authentication with Express JWT tokens
+   */
+  async verifyFirebaseToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { firebaseToken, companyId } = req.body;
+
+      if (!firebaseToken) {
+        res.status(400).json({
+          success: false,
+          message: 'Firebase ID token is required',
+          error: 'MISSING_FIREBASE_TOKEN',
+        });
+        return;
+      }
+
+      // Check if Firebase is available
+      if (!firebaseService.isAvailable()) {
+        res.status(503).json({
+          success: false,
+          message: 'Firebase service is not available',
+          error: 'FIREBASE_UNAVAILABLE',
+        });
+        return;
+      }
+
+      // Verify Firebase ID token
+      const decodedToken = await firebaseService.verifyIdToken(firebaseToken);
+      if (!decodedToken) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid Firebase ID token',
+          error: 'INVALID_FIREBASE_TOKEN',
+        });
+        return;
+      }
+
+      // Extract phone number from Firebase token
+      const phoneNumber = decodedToken.phone_number;
+      if (!phoneNumber) {
+        res.status(400).json({
+          success: false,
+          message: 'Phone number not found in Firebase token',
+          error: 'MISSING_PHONE_NUMBER',
+        });
+        return;
+      }
+
+      // Get client data from Firebase
+      const clientData = await firebaseService.getClientByPhone(phoneNumber, companyId);
+      if (!clientData) {
+        res.status(404).json({
+          success: false,
+          message: 'Client not found',
+          error: 'CLIENT_NOT_FOUND',
+        });
+        return;
+      }
+
+      // Generate Express JWT tokens for this client session
+      const userPayload = {
+        userId: clientData.id,
+        email: clientData.email || `${clientData.phone}@client.local`,
+        companyId: clientData.companyId,
+        role: 'USER' as UserRole, // Client sessions use USER role
+      };
+
+      const refreshPayload = {
+        userId: clientData.id,
+        companyId: clientData.companyId,
+        tokenId: generateTokenId(),
+      };
+
+      const tokens = generateTokenPair(userPayload, refreshPayload);
+
+      // Log successful authentication bridge
+      logger.info('Firebase-Express authentication bridge successful', {
+        clientId: clientData.id,
+        phoneNumber: clientData.phone,
+        companyId: clientData.companyId,
+        firebaseUid: decodedToken.uid,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Firebase token verified and Express session created',
+        data: {
+          client: {
+            id: clientData.id,
+            name: clientData.name,
+            phone: clientData.phone,
+            email: clientData.email,
+            companyId: clientData.companyId,
+          },
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn,
+            refreshExpiresIn: tokens.refreshExpiresIn,
+          },
+          firebaseUid: decodedToken.uid,
+        },
+      });
+    } catch (error) {
+      logger.error('Firebase token verification error:', error);
+      
+      let statusCode = 500;
+      let errorCode = 'FIREBASE_VERIFICATION_FAILED';
+      let message = 'Firebase token verification failed';
+
+      if (error instanceof Error) {
+        if (error.message.includes('Firebase Admin SDK not initialized')) {
+          statusCode = 503;
+          errorCode = 'FIREBASE_UNAVAILABLE';
+          message = 'Firebase service is not available';
+        } else if (error.message.includes('Invalid token')) {
+          statusCode = 401;
+          errorCode = 'INVALID_FIREBASE_TOKEN';
+          message = 'Invalid Firebase ID token';
+        }
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message,
+        error: errorCode,
+      });
+    }
+  }
+
+  /**
    * Health check for auth service
    */
   async healthCheck(req: Request, res: Response): Promise<void> {
     try {
+      const firebaseAvailable = firebaseService.isAvailable();
+      
       res.status(200).json({
         success: true,
         message: 'Auth service is healthy',
         timestamp: new Date().toISOString(),
         service: 'authentication',
+        integrations: {
+          firebase: firebaseAvailable ? 'available' : 'unavailable'
+        },
       });
     } catch (error) {
       logger.error('Auth health check error:', error);

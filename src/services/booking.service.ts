@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AppointmentSource } from '@prisma/client';
 import { AppointmentService, AppointmentInput } from './appointment.service';
 import { AvailabilityService, TimeSlot } from './availability.service';
 import { addDays, format, startOfDay, endOfDay } from 'date-fns';
@@ -151,7 +151,7 @@ export class BookingService {
           bookingData.date,
           bookingData.startTime,
           totalDuration
-        );
+        ) || undefined;
       }
       
       if (!assignedStaffId) {
@@ -186,7 +186,9 @@ export class BookingService {
         paymentStatus: 'PENDING',
         
         notes: bookingData.notes,
-        source: bookingData.source === 'WEB' ? 'ONLINE' : bookingData.source,
+        source: bookingData.source === 'WEB' ? AppointmentSource.ONLINE 
+          : bookingData.source === 'PHONE' ? AppointmentSource.PHONE 
+          : AppointmentSource.APP,
         bookingLinkId: bookingData.bookingLinkId,
         
         notifications: [
@@ -626,7 +628,7 @@ export class BookingService {
           date: appointment.date,
           startTime: appointment.startTime,
           endTime: appointment.endTime,
-          services: appointment.services,
+          services: appointment.services as any[],
           staff: {
             id: appointment.staff?.id || '',
             name: appointment.staff?.name || 'TBA'

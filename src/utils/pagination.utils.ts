@@ -128,7 +128,7 @@ export function parseSortParams(sort?: string, order?: string): Record<string, '
         for (let i = 0; i < parts.length - 1; i++) {
           const part = parts[i];
           if (!current[part]) {
-            current[part] = {};
+            current[part] = {} as any;
           }
           current = current[part] as any;
         }

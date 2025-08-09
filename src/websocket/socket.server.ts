@@ -1,362 +1,247 @@
-import { Server as HTTPServer } from 'http';
-import { Server as SocketServer, Socket } from 'socket.io';
-import { verifyAccessToken, JWTPayload } from '../utils/jwt.utils';
-import { authService } from '../services/auth.service';
-import { logger } from '../config/logger';
+import { Server, Socket } from 'socket.io';
+import { Server as HttpServer } from 'http';
+import { verify } from 'jsonwebtoken';
 import { env } from '../config/env';
+import { logger } from '../config/logger';
+import { appointmentHandler } from './handlers/appointment.handler';
+import { availabilityHandler } from './handlers/availability.handler';
+import { notificationHandler } from './handlers/notification.handler';
 
-// Event handlers
-import { AppointmentSocketHandler } from './handlers/appointment.handler';
-import { ClientSocketHandler } from './handlers/client.handler';
-import { NotificationSocketHandler } from './handlers/notification.handler';
-import { StaffSocketHandler } from './handlers/staff.handler';
-
-// Extend Socket interface to include user data
 interface AuthenticatedSocket extends Socket {
-  data: {
-    user: {
-      userId: string;
-      email: string;
-      companyId: string;
-      role: string;
-      permissions?: string[];
-    };
-  };
+  userId?: string;
+  companyId?: string;
+  userRole?: string;
 }
 
-export class WebSocketServer {
-  private io: SocketServer;
-  private rooms: Map<string, Set<string>> = new Map(); // companyId -> socketIds
-  private userSockets: Map<string, string> = new Map(); // userId -> socketId
-  
-  // Event handlers
-  public appointmentHandler: AppointmentSocketHandler;
-  public clientHandler: ClientSocketHandler;
-  public notificationHandler: NotificationSocketHandler;
-  public staffHandler: StaffSocketHandler;
+interface JWTPayload {
+  userId: string;
+  companyId: string;
+  role: string;
+}
 
-  constructor() {
-    this.appointmentHandler = new AppointmentSocketHandler(this);
-    this.clientHandler = new ClientSocketHandler(this);
-    this.notificationHandler = new NotificationSocketHandler(this);
-    this.staffHandler = new StaffSocketHandler(this);
-  }
+class WebSocketServer {
+  private io: Server | null = null;
+  private connectedClients = new Map<string, AuthenticatedSocket>();
 
-  public initialize(httpServer: HTTPServer): void {
-    this.io = new SocketServer(httpServer, {
+  public initialize(httpServer: HttpServer): void {
+    this.io = new Server(httpServer, {
       cors: {
         origin: env.ALLOWED_ORIGINS,
+        methods: ['GET', 'POST'],
         credentials: true,
-        methods: ['GET', 'POST']
       },
       transports: ['websocket', 'polling'],
       pingTimeout: 60000,
       pingInterval: 25000,
     });
-    
-    this.setupMiddleware();
-    this.setupEventHandlers();
-    this.setupCleanup();
-    
+
+    this.io.use(this.authenticateSocket.bind(this));
+    this.io.on('connection', this.handleConnection.bind(this));
+
     logger.info('WebSocket server initialized');
   }
 
-  private setupMiddleware(): void {
-    // Authentication middleware
-    this.io.use(async (socket, next) => {
-      try {
-        const token = socket.handshake.auth.token;
-        
-        if (!token) {
-          return next(new Error('Authentication token required'));
-        }
-
-        // Verify JWT token
-        const payload = verifyAccessToken(token);
-        
-        // Validate user still exists and is active
-        const user = await authService.getUserById(payload.userId, payload.companyId);
-        if (!user) {
-          return next(new Error('User not found or inactive'));
-        }
-
-        // Attach user info to socket
-        (socket as AuthenticatedSocket).data = {
-          user: {
-            userId: payload.userId,
-            email: payload.email,
-            companyId: payload.companyId,
-            role: payload.role,
-            permissions: payload.permissions,
-          }
-        };
-
-        next();
-      } catch (error) {
-        logger.warn('WebSocket authentication failed:', error);
-        next(new Error('Authentication failed'));
-      }
-    });
-
-    // Rate limiting middleware
-    this.io.use((socket, next) => {
-      // Simple rate limiting - in production, use Redis-based solution
-      const now = Date.now();
-      const windowMs = 60 * 1000; // 1 minute
-      const maxRequests = 100; // 100 requests per minute
-
-      if (!socket.data.rateLimitWindow) {
-        socket.data.rateLimitWindow = now;
-        socket.data.requestCount = 1;
-      } else if (now - socket.data.rateLimitWindow > windowMs) {
-        socket.data.rateLimitWindow = now;
-        socket.data.requestCount = 1;
-      } else {
-        socket.data.requestCount = (socket.data.requestCount || 0) + 1;
-        if (socket.data.requestCount > maxRequests) {
-          return next(new Error('Rate limit exceeded'));
-        }
-      }
+  private async authenticateSocket(socket: AuthenticatedSocket, next: (err?: Error) => void): Promise<void> {
+    try {
+      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
       
+      if (!token) {
+        return next(new Error('No authentication token provided'));
+      }
+
+      const decoded = verify(token, env.JWT_SECRET) as JWTPayload;
+      
+      socket.userId = decoded.userId;
+      socket.companyId = decoded.companyId;
+      socket.userRole = decoded.role;
+
       next();
-    });
-  }
-
-  private setupEventHandlers(): void {
-    this.io.on('connection', (socket: AuthenticatedSocket) => {
-      const { userId, companyId } = socket.data.user;
-      
-      logger.info(`User ${userId} connected via WebSocket`);
-
-      // Store socket mapping
-      this.userSockets.set(userId, socket.id);
-      
-      // Join company room
-      socket.join(`company:${companyId}`);
-      
-      // Join user-specific room
-      socket.join(`user:${userId}`);
-
-      // Add to company rooms tracking
-      if (!this.rooms.has(companyId)) {
-        this.rooms.set(companyId, new Set());
-      }
-      this.rooms.get(companyId)!.add(socket.id);
-
-      // Setup event handlers
-      this.setupAppointmentEvents(socket);
-      this.setupClientEvents(socket);
-      this.setupStaffEvents(socket);
-      this.setupNotificationEvents(socket);
-
-      // Handle room joining
-      socket.on('join-room', (room: string) => {
-        this.handleJoinRoom(socket, room);
-      });
-
-      socket.on('leave-room', (room: string) => {
-        this.handleLeaveRoom(socket, room);
-      });
-
-      // Handle disconnection
-      socket.on('disconnect', () => {
-        this.handleDisconnection(socket);
-      });
-
-      // Send connection confirmation
-      socket.emit('connected', {
-        message: 'Connected to Clients+ real-time server',
-        userId,
-        companyId,
-        timestamp: new Date().toISOString(),
-      });
-    });
-  }
-
-  private setupAppointmentEvents(socket: AuthenticatedSocket): void {
-    socket.on('appointments:subscribe', (filters) => {
-      this.appointmentHandler.handleSubscription(socket, filters);
-    });
-
-    socket.on('appointments:unsubscribe', () => {
-      this.appointmentHandler.handleUnsubscription(socket);
-    });
-
-    socket.on('staff-appointments:subscribe', (staffId) => {
-      this.appointmentHandler.handleStaffSubscription(socket, staffId);
-    });
-
-    socket.on('client-appointments:subscribe', (clientId) => {
-      this.appointmentHandler.handleClientSubscription(socket, clientId);
-    });
-  }
-
-  private setupClientEvents(socket: AuthenticatedSocket): void {
-    socket.on('clients:subscribe', (filters) => {
-      this.clientHandler.handleSubscription(socket, filters);
-    });
-
-    socket.on('clients:unsubscribe', () => {
-      this.clientHandler.handleUnsubscription(socket);
-    });
-  }
-
-  private setupStaffEvents(socket: AuthenticatedSocket): void {
-    socket.on('staff:subscribe', (filters) => {
-      this.staffHandler.handleSubscription(socket, filters);
-    });
-
-    socket.on('staff:unsubscribe', () => {
-      this.staffHandler.handleUnsubscription(socket);
-    });
-
-    socket.on('staff-availability:subscribe', (staffId) => {
-      this.staffHandler.handleAvailabilitySubscription(socket, staffId);
-    });
-  }
-
-  private setupNotificationEvents(socket: AuthenticatedSocket): void {
-    socket.on('notifications:mark-read', (notificationId) => {
-      this.notificationHandler.markAsRead(socket, notificationId);
-    });
-
-    socket.on('notifications:subscribe', () => {
-      this.notificationHandler.handleSubscription(socket);
-    });
-  }
-
-  private handleJoinRoom(socket: AuthenticatedSocket, room: string): void {
-    const { companyId, role } = socket.data.user;
-    
-    // Validate room access
-    if (this.validateRoomAccess(room, companyId, role)) {
-      socket.join(room);
-      socket.emit('room-joined', { room });
-      logger.info(`Socket ${socket.id} joined room ${room}`);
-    } else {
-      socket.emit('error', { message: 'Access denied to room', room });
+    } catch (error) {
+      logger.error('WebSocket authentication failed:', error);
+      next(new Error('Authentication failed'));
     }
   }
 
-  private handleLeaveRoom(socket: AuthenticatedSocket, room: string): void {
-    socket.leave(room);
-    socket.emit('room-left', { room });
-    logger.info(`Socket ${socket.id} left room ${room}`);
-  }
-
-  private handleDisconnection(socket: AuthenticatedSocket): void {
-    const { userId, companyId } = socket.data.user;
+  private handleConnection(socket: AuthenticatedSocket): void {
+    const { userId, companyId, userRole } = socket;
     
-    logger.info(`User ${userId} disconnected from WebSocket`);
-
-    // Remove from user sockets mapping
-    this.userSockets.delete(userId);
+    logger.info(`WebSocket client connected: ${socket.id} (User: ${userId}, Company: ${companyId})`);
     
-    // Remove from company rooms tracking
-    const companyRoom = this.rooms.get(companyId);
-    if (companyRoom) {
-      companyRoom.delete(socket.id);
-      if (companyRoom.size === 0) {
-        this.rooms.delete(companyId);
-      }
+    this.connectedClients.set(socket.id, socket);
+
+    // Join company room for company-wide broadcasts
+    if (companyId) {
+      socket.join(`company_${companyId}`);
+      logger.debug(`Socket ${socket.id} joined company room: company_${companyId}`);
     }
 
-    // Clean up subscriptions
-    this.appointmentHandler.handleDisconnection(socket);
-    this.clientHandler.handleDisconnection(socket);
-    this.staffHandler.handleDisconnection(socket);
-    this.notificationHandler.handleDisconnection(socket);
-  }
-
-  private validateRoomAccess(room: string, companyId: string, role: string): boolean {
-    // Parse room format: type:identifier
-    const [roomType, roomId] = room.split(':');
-    
-    switch (roomType) {
-      case 'company':
-        return roomId === companyId;
-      case 'branch':
-        // In future, validate branch access
-        return true;
-      case 'user':
-        // Users can join their own room or admin/manager can join any
-        return ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role);
-      default:
-        return false;
+    // Join user-specific room for direct notifications
+    if (userId) {
+      socket.join(`user_${userId}`);
+      logger.debug(`Socket ${socket.id} joined user room: user_${userId}`);
     }
-  }
 
-  private setupCleanup(): void {
-    // Periodic cleanup of stale connections
-    setInterval(() => {
-      const connectedSockets = new Set(
-        Array.from(this.io.sockets.sockets.keys())
-      );
-      
-      // Clean up user socket mappings
-      for (const [userId, socketId] of this.userSockets.entries()) {
-        if (!connectedSockets.has(socketId)) {
-          this.userSockets.delete(userId);
-        }
-      }
-      
-      // Clean up room mappings
-      for (const [companyId, socketIds] of this.rooms.entries()) {
-        const activeSocketIds = new Set(
-          Array.from(socketIds).filter(id => connectedSockets.has(id))
-        );
-        
-        if (activeSocketIds.size === 0) {
-          this.rooms.delete(companyId);
-        } else {
-          this.rooms.set(companyId, activeSocketIds);
-        }
-      }
-    }, 30000); // Clean up every 30 seconds
-  }
-
-  // Public methods for emitting events
-  public emitToUser(userId: string, event: string, data: any): void {
-    const socketId = this.userSockets.get(userId);
-    if (socketId) {
-      this.io.to(socketId).emit(event, data);
+    // Join role-based room for role-specific notifications
+    if (userRole && companyId) {
+      socket.join(`role_${userRole}_${companyId}`);
+      logger.debug(`Socket ${socket.id} joined role room: role_${userRole}_${companyId}`);
     }
+
+    // Register event handlers
+    this.registerEventHandlers(socket);
+
+    // Handle custom room joins
+    this.handleRoomManagement(socket);
+
+    // Handle disconnection
+    socket.on('disconnect', (reason) => {
+      logger.info(`WebSocket client disconnected: ${socket.id} (Reason: ${reason})`);
+      this.connectedClients.delete(socket.id);
+    });
+
+    // Send connection confirmation
+    socket.emit('connected', {
+      socketId: socket.id,
+      timestamp: new Date().toISOString(),
+      rooms: Array.from(socket.rooms),
+    });
   }
 
-  public emitToCompany(companyId: string, event: string, data: any): void {
-    this.io.to(`company:${companyId}`).emit(event, data);
-  }
-
-  public emitToRoom(room: string, event: string, data: any): void {
-    this.io.to(room).emit(event, data);
-  }
-
-  public broadcastToAll(event: string, data: any): void {
-    this.io.emit(event, data);
-  }
-
-  public getConnectedUsers(companyId: string): string[] {
-    const room = this.io.sockets.adapter.rooms.get(`company:${companyId}`);
-    if (!room) return [];
+  private registerEventHandlers(socket: AuthenticatedSocket): void {
+    // Appointment events
+    appointmentHandler.register(socket, this.io!);
     
-    return Array.from(room).map(socketId => {
-      const socket = this.io.sockets.sockets.get(socketId) as AuthenticatedSocket;
-      return socket?.data?.user?.userId;
-    }).filter(Boolean);
+    // Availability events
+    availabilityHandler.register(socket, this.io!);
+    
+    // Notification events
+    notificationHandler.register(socket, this.io!);
   }
 
-  public getConnectionCount(companyId: string): number {
-    const room = this.io.sockets.adapter.rooms.get(`company:${companyId}`);
-    return room ? room.size : 0;
+  private handleRoomManagement(socket: AuthenticatedSocket): void {
+    // Join branch room
+    socket.on('join_branch_room', (data: { branchId: string }) => {
+      if (data.branchId) {
+        socket.join(`branch_${data.branchId}`);
+        socket.emit('room_joined', {
+          room: `branch_${data.branchId}`,
+          success: true,
+          timestamp: new Date().toISOString(),
+        });
+        logger.debug(`Socket ${socket.id} joined branch room: branch_${data.branchId}`);
+      }
+    });
+
+    // Join staff room
+    socket.on('join_staff_room', (data: { staffId: string }) => {
+      if (data.staffId) {
+        socket.join(`staff_${data.staffId}`);
+        socket.emit('room_joined', {
+          room: `staff_${data.staffId}`,
+          success: true,
+          timestamp: new Date().toISOString(),
+        });
+        logger.debug(`Socket ${socket.id} joined staff room: staff_${data.staffId}`);
+      }
+    });
+
+    // Leave room
+    socket.on('leave_room', (data: { room: string }) => {
+      if (data.room) {
+        socket.leave(data.room);
+        socket.emit('room_left', {
+          room: data.room,
+          success: true,
+          timestamp: new Date().toISOString(),
+        });
+        logger.debug(`Socket ${socket.id} left room: ${data.room}`);
+      }
+    });
+  }
+
+  // Public methods for broadcasting events
+  public broadcastToCompany(companyId: string, event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('WebSocket server not initialized, cannot broadcast');
+      return;
+    }
+
+    this.io.to(`company_${companyId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public broadcastToBranch(branchId: string, event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('WebSocket server not initialized, cannot broadcast');
+      return;
+    }
+
+    this.io.to(`branch_${branchId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public broadcastToUser(userId: string, event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('WebSocket server not initialized, cannot broadcast');
+      return;
+    }
+
+    this.io.to(`user_${userId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public broadcastToRole(role: string, companyId: string, event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('WebSocket server not initialized, cannot broadcast');
+      return;
+    }
+
+    this.io.to(`role_${role}_${companyId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public broadcastToStaff(staffId: string, event: string, data: any): void {
+    if (!this.io) {
+      logger.warn('WebSocket server not initialized, cannot broadcast');
+      return;
+    }
+
+    this.io.to(`staff_${staffId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public getConnectionCount(companyId?: string): number {
+    if (!this.io) return 0;
+
+    if (companyId) {
+      return this.io.sockets.adapter.rooms.get(`company_${companyId}`)?.size || 0;
+    }
+
+    return this.connectedClients.size;
+  }
+
+  public isRunning(): boolean {
+    return this.io !== null;
   }
 
   public close(): void {
     if (this.io) {
       this.io.close();
+      this.io = null;
+      this.connectedClients.clear();
       logger.info('WebSocket server closed');
     }
   }
 }
 
-// Export singleton instance
 export const webSocketServer = new WebSocketServer();

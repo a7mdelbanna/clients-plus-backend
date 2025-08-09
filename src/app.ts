@@ -24,15 +24,16 @@ import companyRoutes from './routes/company.routes';
 import userRoutes from './routes/user.routes';
 import clientRoutes from './routes/client.routes';
 import projectRoutes from './routes/project.routes';
-import invoiceRoutes from './routes/invoice.routes';
+// import invoiceRoutes from './routes/invoice.routes';
 import branchRoutes from './routes/branch.routes';
 import serviceRoutes from './routes/service.routes';
 import staffRoutes from './routes/staff.routes';
 import appointmentRoutes from './routes/appointment.routes';
-import notificationRoutes from './routes/notification.routes';
+// import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
-import { analyticsRoutes } from './routes/analytics.routes';
-import { reportsRoutes } from './routes/reports.routes';
+// import { analyticsRoutes } from './routes/analytics.routes';
+// import { reportsRoutes } from './routes/reports.routes';
+import publicRoutes from './routes/public.routes';
 
 class App {
   public app: Application;
@@ -135,10 +136,9 @@ class App {
     this.app.use(`${apiPrefix}/users`, userRoutes);
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);
-    this.app.use(`${apiPrefix}/invoices`, invoiceRoutes);
-    this.app.use(`${apiPrefix}/notifications`, notificationRoutes);
-    this.app.use(`${apiPrefix}/analytics`, analyticsRoutes);
-    this.app.use(`${apiPrefix}/reports`, reportsRoutes);
+    
+    // Public routes (no authentication required)
+    this.app.use(`${apiPrefix}/public`, publicRoutes);
 
     // Root endpoint
     this.app.get('/', (req: Request, res: Response) => {

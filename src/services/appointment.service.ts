@@ -1,4 +1,4 @@
-import { PrismaClient, AppointmentStatus, AppointmentSource, ReminderType } from '@prisma/client';
+import { PrismaClient, AppointmentStatus, AppointmentSource, ReminderType, PaymentStatus } from '@prisma/client';
 import { addMinutes, addDays, addWeeks, addMonths, format, parse, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 import { enhancedNotificationService, EnhancedNotificationData } from './enhanced-notification.service';
 
@@ -156,17 +156,17 @@ export class AppointmentService {
             totalDuration: input.totalDuration,
             
             // Services (JSON)
-            services: input.services,
+            services: input.services as any,
             categoryId: input.categoryId,
             totalPrice: input.totalPrice,
             
             // Status
             status: input.status || AppointmentStatus.PENDING,
-            paymentStatus: input.paymentStatus || 'PENDING',
+            paymentStatus: input.paymentStatus || PaymentStatus.PENDING,
             
             // Recurring
             isRecurring: input.isRecurring || false,
-            recurringPattern: input.recurringPattern,
+            recurringPattern: input.recurringPattern as any,
             
             // Details
             title: input.title,
@@ -188,7 +188,7 @@ export class AppointmentService {
             createdBy: userId,
             
             // Notifications
-            notifications: input.notifications,
+            notifications: input.notifications as any,
             
             // Change tracking
             changeHistory: [{
@@ -336,7 +336,7 @@ export class AppointmentService {
       const updatedAppointment = await prisma.appointment.update({
         where: { id: appointmentId },
         data: {
-          ...updates,
+          ...(updates as any),
           endTime,
           lastModifiedBy: userId,
           changeHistory: [...(currentAppointment.changeHistory as any[] || []), changeEntry]
@@ -395,12 +395,37 @@ export class AppointmentService {
       
       // Create new appointment with new time
       const newAppointmentInput: AppointmentInput = {
-        ...currentAppointment,
+        companyId: currentAppointment.companyId,
+        branchId: currentAppointment.branchId,
+        clientId: currentAppointment.clientId,
+        staffId: newStaffId || currentAppointment.staffId,
+        resourceId: currentAppointment.resourceId,
+        clientName: currentAppointment.clientName,
+        clientPhone: currentAppointment.clientPhone,
+        clientEmail: currentAppointment.clientEmail,
+        isNewClient: currentAppointment.isNewClient,
+        staffName: currentAppointment.staffName,
         date: newDate,
         startTime: newStartTime,
-        staffId: newStaffId || currentAppointment.staffId,
+        totalDuration: currentAppointment.totalDuration,
+        services: currentAppointment.services as ServiceAppointmentInput[],
+        categoryId: currentAppointment.categoryId,
+        totalPrice: currentAppointment.totalPrice,
         status: AppointmentStatus.PENDING,
-      } as AppointmentInput;
+        paymentStatus: currentAppointment.paymentStatus,
+        isRecurring: false, // Don't copy recurring pattern for reschedule
+        title: currentAppointment.title,
+        notes: currentAppointment.notes,
+        internalNotes: currentAppointment.internalNotes,
+        color: currentAppointment.color,
+        startingPrice: currentAppointment.startingPrice,
+        prepaidAmount: currentAppointment.prepaidAmount,
+        discount: currentAppointment.discount,
+        resources: currentAppointment.resources,
+        source: currentAppointment.source,
+        bookingLinkId: currentAppointment.bookingLinkId,
+        notifications: currentAppointment.notifications as NotificationConfig[]
+      };
       
       const newAppointmentId = await this.createAppointment(newAppointmentInput, userId || 'system');
       
@@ -409,7 +434,7 @@ export class AppointmentService {
         status: AppointmentStatus.RESCHEDULED,
         rescheduledTo: newAppointmentId,
         rescheduledAt: new Date()
-      }, userId || 'system');
+      } as any, userId || 'system');
       
       // Send reschedule notification for the new appointment
       await this.sendAppointmentNotifications(newAppointmentId, 'reschedule');
@@ -1008,12 +1033,18 @@ export class AppointmentService {
         clientPhone: appointment.clientPhone,
         clientEmail: appointment.clientEmail || undefined,
         businessName: appointment.company.name,
-        serviceName: this.getServiceNames(appointment.services as any[]),
+        serviceName: Array.isArray(appointment.services) 
+          ? (appointment.services as any[]).map(s => s.serviceName || s.name).join(', ')
+          : 'Service',
         staffName: appointment.staff?.name,
         appointmentDate: appointment.date,
         appointmentTime: appointment.startTime,
-        businessAddress: this.formatAddress(appointment.branch?.address as any),
-        businessPhone: this.getBusinessPhone(appointment.branch?.contact as any),
+        businessAddress: typeof appointment.branch?.address === 'string' 
+          ? appointment.branch.address 
+          : 'Business Address',
+        businessPhone: typeof appointment.branch?.contact === 'object' && appointment.branch.contact 
+          ? (appointment.branch.contact as any)?.phone || 'N/A'
+          : 'N/A',
         language: 'ar', // Default to Arabic, can be made dynamic
         googleMapsLink: this.getGoogleMapsLink(appointment.branch?.address as any)
       };

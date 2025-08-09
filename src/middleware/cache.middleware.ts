@@ -103,7 +103,7 @@ function generateVaryKey(req: Request, varyBy: string[]): string {
         varyParts.push(`${queryName}:${queryValue}`);
       }
     } else if (key === 'user') {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       if (userId) {
         varyParts.push(`user:${userId}`);
       }

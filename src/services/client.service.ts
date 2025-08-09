@@ -680,7 +680,7 @@ export class ClientService {
       try {
         const updatedClient = await this.getClient(clientId, companyId);
         if (updatedClient) {
-          wsIntegration.emitClientUpdated(updatedClient as any);
+          wsIntegration.emitClientUpdated(updatedClient as any, updates);
         }
       } catch (wsError) {
         logger.warn('Failed to emit WebSocket event for client update:', wsError);

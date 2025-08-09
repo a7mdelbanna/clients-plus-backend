@@ -563,6 +563,50 @@ router.get('/verify', authenticateToken, authController.verifyToken);
 
 /**
  * @swagger
+ * /auth/firebase/verify:
+ *   post:
+ *     summary: Verify Firebase ID token and create Express session
+ *     tags: [Authentication]
+ *     description: Bridge Firebase client authentication with Express JWT tokens
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firebaseToken
+ *             properties:
+ *               firebaseToken:
+ *                 type: string
+ *                 description: Firebase ID token from client authentication
+ *               companyId:
+ *                 type: string
+ *                 description: Optional company ID for client filtering
+ *     responses:
+ *       200:
+ *         description: Firebase token verified and Express session created
+ *       400:
+ *         description: Invalid request or missing Firebase token
+ *       401:
+ *         description: Invalid Firebase ID token
+ *       404:
+ *         description: Client not found
+ *       503:
+ *         description: Firebase service unavailable
+ */
+router.post('/firebase/verify', [
+  body('firebaseToken')
+    .notEmpty()
+    .withMessage('Firebase ID token is required'),
+  body('companyId')
+    .optional()
+    .isString()
+    .withMessage('Company ID must be a string'),
+], authController.verifyFirebaseToken);
+
+/**
+ * @swagger
  * /auth/health:
  *   get:
  *     summary: Auth service health check
@@ -584,6 +628,12 @@ router.get('/verify', authenticateToken, authController.verifyToken);
  *                   format: date-time
  *                 service:
  *                   type: string
+ *                 integrations:
+ *                   type: object
+ *                   properties:
+ *                     firebase:
+ *                       type: string
+ *                       enum: [available, unavailable]
  */
 router.get('/health', authController.healthCheck);
 

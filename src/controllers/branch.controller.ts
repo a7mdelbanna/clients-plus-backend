@@ -651,6 +651,53 @@ export class BranchController {
       });
     }
   }
+
+  /**
+   * Get public branches for a company (no authentication required)
+   */
+  async getPublicBranches(req: Request, res: Response): Promise<void> {
+    try {
+      const companyId = req.query.companyId as string;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+          error: 'BAD_REQUEST',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const branches = await branchService.getPublicBranches(companyId);
+
+      res.json({
+        success: true,
+        message: 'Branches retrieved successfully',
+        data: branches,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Get public branches error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }
 
 export const branchController = new BranchController();
