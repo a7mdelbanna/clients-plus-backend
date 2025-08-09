@@ -1,0 +1,696 @@
+{
+  "companies": [
+    {
+      "id": "spa-company-1",
+      "name": "Luxury Spa & Wellness",
+      "type": "SPA",
+      "timezone": "America/New_York",
+      "currency": "USD",
+      "address": {
+        "street": "123 Wellness Way",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10001",
+        "country": "USA"
+      },
+      "phone": "+1-555-SPA-LUXE",
+      "email": "info@luxuryspa.com",
+      "website": "https://luxuryspa.com",
+      "settings": {
+        "timeZone": "America/New_York",
+        "dateFormat": "MM/DD/YYYY",
+        "timeFormat": "12",
+        "currency": "USD",
+        "taxRate": 0.0875,
+        "minimumNoticeHours": 24,
+        "maxAdvanceBookingDays": 90,
+        "allowOnlineBooking": true,
+        "requireDeposit": false,
+        "depositPercentage": 0,
+        "cancellationPolicy": {
+          "minNoticeHours": 24,
+          "feeAmount": 25.00,
+          "refundPolicy": "PARTIAL"
+        },
+        "businessHours": {
+          "monday": { "open": "08:00", "close": "20:00", "closed": false },
+          "tuesday": { "open": "08:00", "close": "20:00", "closed": false },
+          "wednesday": { "open": "08:00", "close": "20:00", "closed": false },
+          "thursday": { "open": "08:00", "close": "20:00", "closed": false },
+          "friday": { "open": "08:00", "close": "21:00", "closed": false },
+          "saturday": { "open": "09:00", "close": "19:00", "closed": false },
+          "sunday": { "open": "10:00", "close": "18:00", "closed": false }
+        }
+      }
+    },
+    {
+      "id": "wellness-center-2",
+      "name": "Zen Wellness Center",
+      "type": "WELLNESS",
+      "timezone": "America/Los_Angeles",
+      "currency": "USD",
+      "address": {
+        "street": "456 Harmony Drive",
+        "city": "Los Angeles",
+        "state": "CA",
+        "zipCode": "90210",
+        "country": "USA"
+      },
+      "phone": "+1-555-ZEN-WELL",
+      "email": "contact@zenwellness.com",
+      "website": "https://zenwellness.com",
+      "settings": {
+        "timeZone": "America/Los_Angeles",
+        "dateFormat": "MM/DD/YYYY",
+        "timeFormat": "12",
+        "currency": "USD",
+        "taxRate": 0.095,
+        "minimumNoticeHours": 12,
+        "maxAdvanceBookingDays": 60,
+        "allowOnlineBooking": true,
+        "requireDeposit": true,
+        "depositPercentage": 20,
+        "businessHours": {
+          "monday": { "open": "07:00", "close": "19:00", "closed": false },
+          "tuesday": { "open": "07:00", "close": "19:00", "closed": false },
+          "wednesday": { "open": "07:00", "close": "19:00", "closed": false },
+          "thursday": { "open": "07:00", "close": "19:00", "closed": false },
+          "friday": { "open": "07:00", "close": "20:00", "closed": false },
+          "saturday": { "open": "08:00", "close": "18:00", "closed": false },
+          "sunday": { "closed": true }
+        }
+      }
+    }
+  ],
+  "branches": [
+    {
+      "id": "main-spa-location",
+      "companyId": "spa-company-1",
+      "name": "Main Spa Location",
+      "type": "MAIN",
+      "address": {
+        "street": "123 Wellness Way",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10001",
+        "country": "USA"
+      },
+      "phone": "+1-555-SPA-MAIN",
+      "email": "main@luxuryspa.com",
+      "capacity": {
+        "maxConcurrentAppointments": 20,
+        "rooms": 12,
+        "staffCount": 15
+      },
+      "operatingHours": {
+        "monday": { "open": "08:00", "close": "20:00", "closed": false },
+        "tuesday": { "open": "08:00", "close": "20:00", "closed": false },
+        "wednesday": { "open": "08:00", "close": "20:00", "closed": false },
+        "thursday": { "open": "08:00", "close": "20:00", "closed": false },
+        "friday": { "open": "08:00", "close": "21:00", "closed": false },
+        "saturday": { "open": "09:00", "close": "19:00", "closed": false },
+        "sunday": { "open": "10:00", "close": "18:00", "closed": false }
+      },
+      "amenities": [
+        "Sauna", "Steam Room", "Hot Tub", "Relaxation Lounge", 
+        "Private Parking", "Wifi", "Refreshments", "Robes & Towels"
+      ]
+    },
+    {
+      "id": "spa-westside",
+      "companyId": "spa-company-1",
+      "name": "Westside Spa Branch",
+      "type": "BRANCH",
+      "address": {
+        "street": "789 Relaxation Blvd",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10024",
+        "country": "USA"
+      },
+      "phone": "+1-555-SPA-WEST",
+      "email": "westside@luxuryspa.com",
+      "capacity": {
+        "maxConcurrentAppointments": 12,
+        "rooms": 8,
+        "staffCount": 10
+      },
+      "operatingHours": {
+        "monday": { "open": "09:00", "close": "19:00", "closed": false },
+        "tuesday": { "open": "09:00", "close": "19:00", "closed": false },
+        "wednesday": { "open": "09:00", "close": "19:00", "closed": false },
+        "thursday": { "open": "09:00", "close": "19:00", "closed": false },
+        "friday": { "open": "09:00", "close": "20:00", "closed": false },
+        "saturday": { "open": "09:00", "close": "18:00", "closed": false },
+        "sunday": { "closed": true }
+      }
+    }
+  ],
+  "services": [
+    {
+      "id": "deep-tissue-massage",
+      "companyId": "spa-company-1",
+      "name": "Deep Tissue Massage",
+      "category": "MASSAGE",
+      "description": "Therapeutic deep tissue massage targeting muscle tension and knots",
+      "duration": { "hours": 1, "minutes": 0 },
+      "basePrice": 120.00,
+      "staffPricing": {
+        "senior-therapist": 140.00,
+        "master-therapist": 160.00
+      },
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": false,
+        "bufferTimeBefore": 15,
+        "bufferTimeAfter": 15
+      },
+      "requirements": {
+        "roomType": "MASSAGE_ROOM",
+        "equipment": ["massage_table", "towels", "oils"],
+        "staffCertifications": ["massage_therapy", "deep_tissue"]
+      }
+    },
+    {
+      "id": "swedish-massage",
+      "companyId": "spa-company-1",
+      "name": "Swedish Relaxation Massage",
+      "category": "MASSAGE",
+      "description": "Gentle, flowing massage for relaxation and stress relief",
+      "duration": { "hours": 1, "minutes": 0 },
+      "basePrice": 110.00,
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": false,
+        "bufferTimeBefore": 10,
+        "bufferTimeAfter": 10
+      }
+    },
+    {
+      "id": "hot-stone-massage",
+      "companyId": "spa-company-1",
+      "name": "Hot Stone Massage",
+      "category": "MASSAGE",
+      "description": "Therapeutic massage using heated basalt stones",
+      "duration": { "hours": 1, "minutes": 30 },
+      "basePrice": 165.00,
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": true,
+        "depositAmount": 50.00,
+        "bufferTimeBefore": 30,
+        "bufferTimeAfter": 30
+      },
+      "requirements": {
+        "roomType": "MASSAGE_ROOM",
+        "equipment": ["massage_table", "hot_stone_warmer", "stones", "towels"],
+        "setupTime": 15,
+        "cleanupTime": 20
+      }
+    },
+    {
+      "id": "european-facial",
+      "companyId": "spa-company-1",
+      "name": "European Facial",
+      "category": "FACIAL",
+      "description": "Classic European facial with deep cleansing and moisturizing",
+      "duration": { "hours": 1, "minutes": 15 },
+      "basePrice": 95.00,
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": false
+      },
+      "requirements": {
+        "roomType": "FACIAL_ROOM",
+        "equipment": ["facial_bed", "steamer", "magnifying_lamp"]
+      }
+    },
+    {
+      "id": "anti-aging-facial",
+      "companyId": "spa-company-1",
+      "name": "Anti-Aging Facial Treatment",
+      "category": "FACIAL",
+      "description": "Advanced anti-aging facial with peptides and LED therapy",
+      "duration": { "hours": 1, "minutes": 45 },
+      "basePrice": 185.00,
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": true,
+        "depositAmount": 75.00
+      },
+      "requirements": {
+        "roomType": "FACIAL_ROOM",
+        "equipment": ["facial_bed", "led_therapy_device", "advanced_serums"],
+        "staffCertifications": ["advanced_skincare", "led_therapy"]
+      }
+    },
+    {
+      "id": "couples-massage",
+      "companyId": "spa-company-1",
+      "name": "Couples Massage Package",
+      "category": "PACKAGE",
+      "description": "Side-by-side massage experience for couples",
+      "duration": { "hours": 1, "minutes": 0 },
+      "basePrice": 280.00,
+      "isActive": true,
+      "onlineBooking": {
+        "enabled": true,
+        "requiresDeposit": true,
+        "depositAmount": 100.00
+      },
+      "requirements": {
+        "roomType": "COUPLES_ROOM",
+        "staffCount": 2,
+        "equipment": ["two_massage_tables", "towels", "oils"]
+      }
+    }
+  ],
+  "staff": [
+    {
+      "id": "sarah-massage-therapist",
+      "companyId": "spa-company-1",
+      "branchIds": ["main-spa-location"],
+      "firstName": "Sarah",
+      "lastName": "Thompson",
+      "email": "sarah.thompson@luxuryspa.com",
+      "phone": "+1-555-0101",
+      "role": "THERAPIST",
+      "specializations": ["Deep Tissue", "Swedish", "Hot Stone", "Sports Massage"],
+      "certifications": [
+        {
+          "name": "Licensed Massage Therapist",
+          "issuer": "NY State Board",
+          "expirationDate": "2025-12-31"
+        },
+        {
+          "name": "Deep Tissue Specialist",
+          "issuer": "AMTA",
+          "expirationDate": "2024-08-15"
+        }
+      ],
+      "experience": "8 years",
+      "level": "SENIOR",
+      "hourlyRate": 35.00,
+      "commissionRate": 0.45,
+      "isActive": true,
+      "onlineBookingEnabled": true,
+      "workSchedule": {
+        "monday": { "start": "09:00", "end": "17:00", "breaks": [{"start": "12:00", "end": "13:00"}] },
+        "tuesday": { "start": "09:00", "end": "17:00", "breaks": [{"start": "12:00", "end": "13:00"}] },
+        "wednesday": { "start": "09:00", "end": "17:00", "breaks": [{"start": "12:00", "end": "13:00"}] },
+        "thursday": { "start": "09:00", "end": "17:00", "breaks": [{"start": "12:00", "end": "13:00"}] },
+        "friday": { "start": "10:00", "end": "18:00", "breaks": [{"start": "13:00", "end": "14:00"}] },
+        "saturday": { "start": "09:00", "end": "16:00", "breaks": [{"start": "12:30", "end": "13:30"}] },
+        "sunday": { "off": true }
+      }
+    },
+    {
+      "id": "michael-massage-therapist",
+      "companyId": "spa-company-1",
+      "branchIds": ["main-spa-location", "spa-westside"],
+      "firstName": "Michael",
+      "lastName": "Rodriguez",
+      "email": "michael.rodriguez@luxuryspa.com",
+      "phone": "+1-555-0102",
+      "role": "THERAPIST",
+      "specializations": ["Deep Tissue", "Thai Massage", "Reflexology"],
+      "experience": "12 years",
+      "level": "MASTER",
+      "hourlyRate": 45.00,
+      "commissionRate": 0.50,
+      "isActive": true,
+      "onlineBookingEnabled": true,
+      "workSchedule": {
+        "monday": { "branchId": "main-spa-location", "start": "08:00", "end": "16:00" },
+        "tuesday": { "branchId": "main-spa-location", "start": "08:00", "end": "16:00" },
+        "wednesday": { "branchId": "spa-westside", "start": "10:00", "end": "18:00" },
+        "thursday": { "branchId": "spa-westside", "start": "10:00", "end": "18:00" },
+        "friday": { "branchId": "main-spa-location", "start": "09:00", "end": "17:00" },
+        "saturday": { "off": true },
+        "sunday": { "off": true }
+      }
+    },
+    {
+      "id": "emma-aesthetician",
+      "companyId": "spa-company-1",
+      "branchIds": ["main-spa-location"],
+      "firstName": "Emma",
+      "lastName": "Chen",
+      "email": "emma.chen@luxuryspa.com",
+      "phone": "+1-555-0103",
+      "role": "AESTHETICIAN",
+      "specializations": ["European Facial", "Anti-Aging", "Acne Treatment", "Chemical Peels"],
+      "certifications": [
+        {
+          "name": "Licensed Aesthetician",
+          "issuer": "NY State Board",
+          "expirationDate": "2025-06-30"
+        },
+        {
+          "name": "Advanced Anti-Aging Specialist",
+          "issuer": "ASCP",
+          "expirationDate": "2024-12-15"
+        }
+      ],
+      "experience": "6 years",
+      "level": "SENIOR",
+      "isActive": true,
+      "onlineBookingEnabled": true
+    }
+  ],
+  "clients": [
+    {
+      "id": "client-regular-jane",
+      "companyId": "spa-company-1",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "email": "jane.smith@email.com",
+      "phone": "+1-555-0201",
+      "dateOfBirth": "1985-04-15",
+      "address": {
+        "street": "456 Oak Street",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10002"
+      },
+      "preferences": {
+        "preferredStaff": ["sarah-massage-therapist"],
+        "preferredServices": ["deep-tissue-massage", "european-facial"],
+        "preferredBranch": "main-spa-location",
+        "communicationMethod": "EMAIL",
+        "appointmentReminders": true,
+        "marketingEmails": true
+      },
+      "medicalHistory": {
+        "allergies": ["latex"],
+        "conditions": [],
+        "medications": [],
+        "notes": "Prefers firm pressure, sensitive to scented oils"
+      },
+      "loyaltyProgram": {
+        "tier": "GOLD",
+        "points": 2450,
+        "totalSpent": 2850.00,
+        "memberSince": "2022-01-15"
+      },
+      "visitHistory": {
+        "totalVisits": 28,
+        "lastVisit": "2024-02-28",
+        "averageSpending": 125.00,
+        "favoriteService": "deep-tissue-massage"
+      }
+    },
+    {
+      "id": "client-new-john",
+      "companyId": "spa-company-1",
+      "firstName": "John",
+      "lastName": "Davis",
+      "email": "john.davis@email.com",
+      "phone": "+1-555-0202",
+      "dateOfBirth": "1990-08-22",
+      "address": {
+        "street": "789 Pine Avenue",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10003"
+      },
+      "preferences": {
+        "communicationMethod": "SMS",
+        "appointmentReminders": true,
+        "marketingEmails": false
+      },
+      "medicalHistory": {
+        "allergies": [],
+        "conditions": ["lower back pain"],
+        "notes": "First-time client, interested in therapeutic massage"
+      },
+      "loyaltyProgram": {
+        "tier": "NEW",
+        "points": 0,
+        "totalSpent": 0.00,
+        "memberSince": "2024-03-01"
+      }
+    },
+    {
+      "id": "client-vip-maria",
+      "companyId": "spa-company-1",
+      "firstName": "Maria",
+      "lastName": "Garcia",
+      "email": "maria.garcia@email.com",
+      "phone": "+1-555-0203",
+      "dateOfBirth": "1978-12-10",
+      "preferences": {
+        "preferredStaff": ["michael-massage-therapist", "emma-aesthetician"],
+        "preferredServices": ["anti-aging-facial", "hot-stone-massage"],
+        "communicationMethod": "PHONE",
+        "appointmentReminders": true
+      },
+      "loyaltyProgram": {
+        "tier": "PLATINUM",
+        "points": 8750,
+        "totalSpent": 12500.00,
+        "memberSince": "2020-06-01"
+      },
+      "visitHistory": {
+        "totalVisits": 89,
+        "lastVisit": "2024-03-05",
+        "averageSpending": 185.00
+      }
+    }
+  ],
+  "servicePackages": [
+    {
+      "id": "spa-day-package",
+      "companyId": "spa-company-1",
+      "name": "Ultimate Spa Day Package",
+      "description": "Full day of relaxation with massage, facial, and amenities",
+      "services": [
+        {
+          "serviceId": "swedish-massage",
+          "order": 1,
+          "duration": { "hours": 1, "minutes": 0 }
+        },
+        {
+          "serviceId": "european-facial",
+          "order": 2,
+          "duration": { "hours": 1, "minutes": 15 }
+        },
+        {
+          "serviceId": "spa-amenities-access",
+          "order": 3,
+          "duration": { "hours": 2, "minutes": 0 }
+        }
+      ],
+      "totalDuration": { "hours": 4, "minutes": 15 },
+      "individualPrice": 295.00,
+      "packagePrice": 245.00,
+      "savings": 50.00,
+      "isActive": true,
+      "validDays": ["monday", "tuesday", "wednesday", "thursday"],
+      "bookingRequirements": {
+        "minimumNotice": 48,
+        "requiresDeposit": true,
+        "depositAmount": 100.00
+      }
+    },
+    {
+      "id": "couples-retreat",
+      "companyId": "spa-company-1",
+      "name": "Couples Retreat Package",
+      "description": "Romantic spa experience for couples",
+      "services": [
+        {
+          "serviceId": "couples-massage",
+          "order": 1,
+          "duration": { "hours": 1, "minutes": 0 }
+        }
+      ],
+      "packagePrice": 350.00,
+      "isActive": true,
+      "bookingRequirements": {
+        "minimumNotice": 72,
+        "requiresDeposit": true,
+        "depositAmount": 150.00
+      },
+      "includes": [
+        "Side-by-side massage",
+        "Champagne and chocolates",
+        "Private relaxation time",
+        "Couples robes and slippers"
+      ]
+    }
+  ],
+  "sampleAppointments": [
+    {
+      "id": "appt-001",
+      "companyId": "spa-company-1",
+      "branchId": "main-spa-location",
+      "clientId": "client-regular-jane",
+      "staffId": "sarah-massage-therapist",
+      "serviceId": "deep-tissue-massage",
+      "startTime": "2024-03-20T14:00:00-04:00",
+      "endTime": "2024-03-20T15:00:00-04:00",
+      "status": "SCHEDULED",
+      "price": 140.00,
+      "notes": "Client requested focus on shoulders and neck",
+      "bookingChannel": "ONLINE",
+      "remindersSent": [],
+      "createdAt": "2024-03-15T10:30:00-04:00"
+    },
+    {
+      "id": "appt-002",
+      "companyId": "spa-company-1",
+      "branchId": "main-spa-location",
+      "clientId": "client-vip-maria",
+      "staffId": "emma-aesthetician",
+      "serviceId": "anti-aging-facial",
+      "startTime": "2024-03-22T11:00:00-04:00",
+      "endTime": "2024-03-22T12:45:00-04:00",
+      "status": "CONFIRMED",
+      "price": 185.00,
+      "depositPaid": 75.00,
+      "notes": "VIP client - provide premium products",
+      "bookingChannel": "PHONE"
+    },
+    {
+      "id": "appt-003",
+      "companyId": "spa-company-1",
+      "branchId": "spa-westside",
+      "clientId": "client-new-john",
+      "staffId": "michael-massage-therapist",
+      "serviceId": "swedish-massage",
+      "startTime": "2024-03-18T16:00:00-04:00",
+      "endTime": "2024-03-18T17:00:00-04:00",
+      "status": "COMPLETED",
+      "price": 110.00,
+      "actualStartTime": "2024-03-18T16:05:00-04:00",
+      "actualEndTime": "2024-03-18T17:00:00-04:00",
+      "completedAt": "2024-03-18T17:00:00-04:00",
+      "serviceNotes": "Client enjoyed session, good response to pressure",
+      "nextAppointmentSuggested": "2024-04-01"
+    }
+  ],
+  "sampleInvoices": [
+    {
+      "id": "inv-001",
+      "invoiceNumber": "INV-20240320-001",
+      "companyId": "spa-company-1",
+      "clientId": "client-vip-maria",
+      "appointmentIds": ["appt-002"],
+      "title": "Anti-Aging Facial Treatment",
+      "issueDate": "2024-03-22",
+      "dueDate": "2024-03-22",
+      "status": "SENT",
+      "items": [
+        {
+          "description": "Anti-Aging Facial Treatment - Emma Chen",
+          "quantity": 1,
+          "unitPrice": 185.00,
+          "total": 185.00,
+          "serviceId": "anti-aging-facial",
+          "staffId": "emma-aesthetician"
+        }
+      ],
+      "subtotal": 185.00,
+      "taxRate": 0.0875,
+      "taxAmount": 16.19,
+      "discountAmount": 0.00,
+      "total": 201.19,
+      "paidAmount": 75.00,
+      "balanceDue": 126.19,
+      "paymentTerms": "Due on service date",
+      "notes": "Thank you for choosing our anti-aging facial treatment!"
+    }
+  ],
+  "testScenarios": {
+    "concurrentBooking": {
+      "description": "Multiple clients trying to book the same time slot",
+      "setup": {
+        "availableSlot": {
+          "staffId": "sarah-massage-therapist",
+          "date": "2024-03-25",
+          "time": "10:00-11:00",
+          "serviceId": "deep-tissue-massage"
+        },
+        "competitors": [
+          {
+            "clientId": "client-regular-jane",
+            "priority": "LOYALTY_MEMBER"
+          },
+          {
+            "clientId": "client-new-john",
+            "priority": "FIRST_COME"
+          },
+          {
+            "clientId": "client-vip-maria",
+            "priority": "VIP"
+          }
+        ]
+      },
+      "expectedOutcome": "Only one booking succeeds, others get alternative slots"
+    },
+    "availabilityCalculation": {
+      "description": "Complex availability calculation with multiple constraints",
+      "setup": {
+        "date": "2024-03-25",
+        "constraints": [
+          {
+            "type": "STAFF_SCHEDULE",
+            "staffId": "sarah-massage-therapist",
+            "workingHours": "09:00-17:00",
+            "breaks": ["12:00-13:00"]
+          },
+          {
+            "type": "EXISTING_APPOINTMENTS",
+            "appointments": [
+              {"time": "10:00-11:00", "staffId": "sarah-massage-therapist"},
+              {"time": "14:00-15:30", "staffId": "sarah-massage-therapist"}
+            ]
+          },
+          {
+            "type": "SERVICE_REQUIREMENTS",
+            "serviceId": "deep-tissue-massage",
+            "duration": 60,
+            "bufferTime": 15
+          }
+        ]
+      },
+      "expectedSlots": [
+        "09:00-10:00",
+        "11:15-12:00",
+        "13:00-14:00",
+        "15:45-16:45"
+      ]
+    },
+    "invoiceGeneration": {
+      "description": "Auto-generate invoice after appointment completion",
+      "setup": {
+        "completedAppointment": {
+          "id": "appt-003",
+          "services": [
+            {
+              "serviceId": "swedish-massage",
+              "price": 110.00,
+              "staffId": "michael-massage-therapist"
+            }
+          ],
+          "addOns": [],
+          "tips": 20.00,
+          "discounts": []
+        }
+      },
+      "expectedInvoice": {
+        "items": 1,
+        "subtotal": 110.00,
+        "tip": 20.00,
+        "tax": 9.63,
+        "total": 139.63
+      }
+    }
+  }
+}

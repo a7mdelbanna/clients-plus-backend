@@ -12,37 +12,33 @@ export interface AppointmentFilter {
   status?: string[];
 }
 
-export interface Appointment {
+export interface AppointmentWebSocketData {
   id: string;
   clientId: string;
-  staffId: string;
+  staffId?: string;
   branchId: string;
   companyId: string;
-  serviceId: string;
+  services: any[];
   date: Date;
   startTime: string;
   endTime: string;
   status: string;
+  totalDuration: number;
+  totalPrice: number;
   notes?: string;
   client?: {
     id: string;
     firstName: string;
     lastName: string;
-    email: string;
+    email?: string;
     phone: string;
   };
   staff?: {
     id: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
-  service?: {
-    id: string;
     name: string;
-    duration: number;
-    price: number;
   };
+  isRecurring?: boolean;
+  recurringGroupId?: string;
 }
 
 export interface AvailabilityChange {
