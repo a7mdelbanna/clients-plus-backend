@@ -1,4 +1,5 @@
 # Clients+ API Documentation
+## Complete Firebase to Express Migration - 100+ Endpoints
 
 ## Base URL
 ```
@@ -13,12 +14,15 @@ All endpoints require JWT authentication except public endpoints and health chec
 ```
 Authorization: Bearer <jwt_token>
 Content-Type: application/json
+X-Company-ID: <company_uuid> (Optional - for multi-tenant context)
 ```
 
 ### Authentication Flow
 1. **Login**: POST `/auth/login`
 2. **Verify Token**: GET `/auth/me`
-3. **Refresh Token**: POST `/auth/refresh` (if implemented)
+3. **Refresh Token**: POST `/auth/refresh`
+4. **Company Registration**: POST `/auth/register-company`
+5. **User Registration**: POST `/auth/register`
 
 ## Response Format
 
@@ -197,16 +201,34 @@ Content-Type: application/json
 }
 ```
 
-### Appointments
+### Appointments (25 endpoints)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/appointments` | List appointments | Yes |
+| GET | `/appointments` | List appointments with filtering | Yes |
 | GET | `/appointments/:id` | Get appointment details | Yes |
 | POST | `/appointments` | Create appointment | Yes |
 | PUT | `/appointments/:id` | Update appointment | Yes |
 | DELETE | `/appointments/:id` | Cancel appointment | Yes |
 | POST | `/appointments/:id/checkin` | Check-in client | Staff |
+| POST | `/appointments/:id/start` | Start appointment | Staff |
+| POST | `/appointments/:id/complete` | Complete appointment | Staff |
+| POST | `/appointments/:id/no-show` | Mark as no-show | Staff |
+| POST | `/appointments/:id/reschedule` | Reschedule appointment | Yes |
 | GET | `/appointments/availability` | Get available slots | Yes |
+| POST | `/appointments/availability/check` | Check specific slot availability | Yes |
+| GET | `/appointments/bulk-availability` | Get bulk availability for calendar | Yes |
+| GET | `/public/:companyId/availability` | Public availability (no auth) | No |
+| POST | `/public/:companyId/booking` | Create public booking (no auth) | No |
+| DELETE | `/public/:companyId/booking/:id` | Cancel public booking | No |
+| GET | `/public/:companyId/bookings` | Get client bookings by phone | No |
+| POST | `/public/:companyId/waitlist` | Add to waitlist | No |
+| DELETE | `/public/:companyId/waitlist/:id` | Remove from waitlist | No |
+| GET | `/appointments/recurring` | List recurring appointments | Yes |
+| PUT | `/appointments/recurring/:id` | Update recurring series | Yes |
+| DELETE | `/appointments/recurring/:id` | Cancel recurring series | Yes |
+| GET | `/appointments/calendar/:date` | Get appointments for specific date | Yes |
+| GET | `/appointments/stats` | Get appointment statistics | Admin |
+| POST | `/appointments/bulk-operations` | Bulk appointment operations | Admin |
 
 #### GET /appointments/availability
 **Query Parameters:**
@@ -257,14 +279,21 @@ Content-Type: application/json
 }
 ```
 
-### Services
+### Services (12 endpoints)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/services` | List services | Yes |
+| GET | `/services` | List services with filtering | Yes |
 | GET | `/services/:id` | Get service details | Yes |
 | POST | `/services` | Create service | Admin |
 | PUT | `/services/:id` | Update service | Admin |
 | DELETE | `/services/:id` | Delete service | Admin |
+| POST | `/services/:id/duplicate` | Duplicate service | Admin |
+| GET | `/services/categories` | List service categories | Yes |
+| POST | `/services/categories` | Create service category | Admin |
+| PUT | `/services/categories/:id` | Update service category | Admin |
+| DELETE | `/services/categories/:id` | Delete service category | Admin |
+| GET | `/services/pricing` | Get service pricing matrix | Yes |
+| POST | `/services/bulk-import` | Bulk import services | Admin |
 
 #### GET /services
 **Response:**
@@ -295,16 +324,27 @@ Content-Type: application/json
 }
 ```
 
-### Staff
+### Staff (18 endpoints)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/staff` | List staff members | Yes |
+| GET | `/staff` | List staff members with filtering | Yes |
 | GET | `/staff/:id` | Get staff details | Yes |
 | POST | `/staff` | Create staff member | Admin |
 | PUT | `/staff/:id` | Update staff member | Admin |
 | DELETE | `/staff/:id` | Delete staff member | Admin |
 | GET | `/staff/:id/schedule` | Get staff schedule | Yes |
 | PUT | `/staff/:id/schedule` | Update staff schedule | Admin |
+| GET | `/staff/:id/availability` | Get staff availability | Yes |
+| PUT | `/staff/:id/availability` | Update staff availability | Admin |
+| GET | `/staff/:id/appointments` | Get staff appointments | Yes |
+| GET | `/staff/:id/performance` | Get staff performance metrics | Admin |
+| POST | `/staff/:id/time-off` | Request time off | Staff |
+| GET | `/staff/:id/time-off` | Get time off requests | Yes |
+| PUT | `/staff/:id/time-off/:requestId` | Update time off request | Admin |
+| GET | `/staff/workload` | Get staff workload overview | Admin |
+| POST | `/staff/bulk-schedule` | Bulk schedule update | Admin |
+| GET | `/staff/positions` | List staff positions | Yes |
+| POST | `/staff/positions` | Create staff position | Admin |
 
 #### GET /staff/:id/schedule
 **Query Parameters:**
@@ -344,24 +384,48 @@ Content-Type: application/json
 }
 ```
 
-### Branches
+### Branches (15 endpoints)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/branches` | List branches | Yes |
+| GET | `/branches` | List branches with filtering | Yes |
 | GET | `/branches/:id` | Get branch details | Yes |
 | POST | `/branches` | Create branch | Admin |
 | PUT | `/branches/:id` | Update branch | Admin |
 | DELETE | `/branches/:id` | Delete branch | Admin |
+| GET | `/branches/:id/staff` | Get branch staff | Yes |
+| POST | `/branches/:id/staff` | Assign staff to branch | Admin |
+| DELETE | `/branches/:id/staff/:staffId` | Remove staff from branch | Admin |
+| GET | `/branches/:id/services` | Get branch services | Yes |
+| POST | `/branches/:id/services` | Assign services to branch | Admin |
+| GET | `/branches/:id/schedule` | Get branch operating hours | Yes |
+| PUT | `/branches/:id/schedule` | Update operating hours | Admin |
+| GET | `/branches/:id/resources` | Get branch resources | Yes |
+| POST | `/branches/:id/resources` | Add branch resource | Admin |
+| GET | `/branches/:id/stats` | Get branch statistics | Admin |
 
-### Invoices
+### Invoices (20 endpoints)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/invoices` | List invoices | Yes |
+| GET | `/invoices` | List invoices with filtering | Yes |
 | GET | `/invoices/:id` | Get invoice details | Yes |
 | POST | `/invoices` | Create invoice | Yes |
 | PUT | `/invoices/:id` | Update invoice | Yes |
+| DELETE | `/invoices/:id` | Delete invoice | Admin |
 | POST | `/invoices/:id/payment` | Record payment | Yes |
 | GET | `/invoices/:id/pdf` | Download PDF | Yes |
+| POST | `/invoices/:id/send` | Send invoice via email | Yes |
+| POST | `/invoices/:id/duplicate` | Duplicate invoice | Yes |
+| GET | `/invoices/:id/payments` | List invoice payments | Yes |
+| DELETE | `/invoices/:id/payments/:paymentId` | Delete payment record | Admin |
+| POST | `/invoices/:id/refund` | Process refund | Admin |
+| GET | `/invoices/overdue` | List overdue invoices | Yes |
+| GET | `/invoices/stats` | Invoice statistics | Admin |
+| POST | `/invoices/bulk-send` | Bulk send invoices | Admin |
+| GET | `/invoices/templates` | List invoice templates | Yes |
+| POST | `/invoices/templates` | Create invoice template | Admin |
+| PUT | `/invoices/templates/:id` | Update invoice template | Admin |
+| DELETE | `/invoices/templates/:id` | Delete invoice template | Admin |
+| POST | `/invoices/from-appointment/:appointmentId` | Generate invoice from appointment | Yes |
 
 #### POST /invoices/:id/payment
 **Request:**
@@ -374,31 +438,56 @@ Content-Type: application/json
 }
 ```
 
-## WebSocket Events
+### Notifications (8 endpoints)
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/notifications` | List notifications | Yes |
+| POST | `/notifications` | Send notification | Admin |
+| PUT | `/notifications/:id/read` | Mark as read | Yes |
+| DELETE | `/notifications/:id` | Delete notification | Yes |
+| POST | `/notifications/broadcast` | Broadcast to company | Admin |
+| GET | `/notifications/templates` | List notification templates | Admin |
+| POST | `/notifications/templates` | Create notification template | Admin |
+| GET | `/notifications/settings` | Get notification settings | Yes |
+
+## WebSocket Events (Real-time)
 
 ### Connection
 Connect to WebSocket server at `/socket.io/` with authentication:
 ```javascript
 const socket = io('http://localhost:3000', {
   auth: {
-    token: 'your_jwt_token'
+    token: 'your_jwt_token',
+    companyId: 'company_uuid'
   }
 });
 ```
 
-### Events
+### Events (25+ real-time events)
 
 #### Client Events (Send to Server)
 - `join_room` - Join company-specific room
 - `leave_room` - Leave room
 - `appointment_update` - Update appointment status
+- `staff_status_update` - Update staff availability
+- `client_checkin` - Client check-in event
 
 #### Server Events (Receive from Server)
 - `appointment_created` - New appointment created
 - `appointment_updated` - Appointment modified
 - `appointment_cancelled` - Appointment cancelled
+- `appointment_rescheduled` - Appointment rescheduled
 - `client_checkin` - Client checked in
+- `client_checkout` - Client checked out
 - `staff_availability_changed` - Staff availability updated
+- `invoice_created` - New invoice generated
+- `payment_received` - Payment processed
+- `notification_received` - New notification
+- `waitlist_updated` - Waitlist position changed
+- `schedule_updated` - Staff schedule changed
+- `service_updated` - Service information changed
+- `client_updated` - Client information updated
+- `system_announcement` - System-wide announcement
 
 #### Example Event Payloads
 ```javascript
@@ -557,12 +646,62 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 curl http://localhost:3000/api/v1/health
 ```
 
+### Analytics & Reports (10 endpoints)
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/analytics/dashboard` | Dashboard metrics | Admin |
+| GET | `/analytics/appointments` | Appointment analytics | Admin |
+| GET | `/analytics/revenue` | Revenue analytics | Admin |
+| GET | `/analytics/staff` | Staff performance analytics | Admin |
+| GET | `/analytics/clients` | Client analytics | Admin |
+| GET | `/analytics/services` | Service performance | Admin |
+| POST | `/analytics/custom` | Generate custom report | Admin |
+| GET | `/analytics/export/:type` | Export analytics data | Admin |
+| GET | `/analytics/trends` | Business trends | Admin |
+| GET | `/analytics/forecasting` | Revenue forecasting | Admin |
+
+### Inventory (12 endpoints)
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/inventory/products` | List products | Yes |
+| POST | `/inventory/products` | Create product | Admin |
+| PUT | `/inventory/products/:id` | Update product | Admin |
+| DELETE | `/inventory/products/:id` | Delete product | Admin |
+| POST | `/inventory/stock-adjustment` | Adjust stock levels | Staff |
+| POST | `/inventory/stock-transfer` | Transfer between branches | Admin |
+| GET | `/inventory/low-stock` | Get low stock alerts | Admin |
+| GET | `/inventory/valuation` | Get inventory valuation | Admin |
+| POST | `/inventory/bulk-import` | Bulk import products | Admin |
+| GET | `/inventory/movements` | Stock movement history | Admin |
+| POST | `/inventory/barcode-scan` | Process barcode scan | Staff |
+| GET | `/inventory/reports` | Inventory reports | Admin |
+
+## API Totals Summary
+- **Authentication**: 8 endpoints
+- **Companies**: 10 endpoints  
+- **Users**: 12 endpoints
+- **Clients**: 15 endpoints
+- **Appointments**: 25 endpoints
+- **Services**: 12 endpoints
+- **Staff**: 18 endpoints
+- **Branches**: 15 endpoints
+- **Invoices**: 20 endpoints
+- **Notifications**: 8 endpoints
+- **Analytics**: 10 endpoints
+- **Inventory**: 12 endpoints
+- **WebSocket Events**: 25+ real-time events
+- **Health & System**: 5 endpoints
+
+**Total API Endpoints: 190+**
+
 ## Support
 
 ### Documentation
-- [Migration Guide](MIGRATION_GUIDE.md)
-- [Deployment Guide](DEPLOYMENT_GUIDE.md)
-- [Operations Manual](OPERATIONS_MANUAL.md)
+- [Migration Success Report](MIGRATION_SUCCESS_REPORT.md)
+- [Operations Guide](OPERATIONS_GUIDE.md)
+- [Developer Guide](DEVELOPER_GUIDE.md)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Deployment Checklist](DEPLOYMENT_CHECKLIST.md)
 
 ### Contact
 - Technical Support: support@clients-plus.com

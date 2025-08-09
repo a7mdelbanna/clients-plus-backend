@@ -15,6 +15,7 @@ import { AppointmentSocketHandler } from './handlers/appointment.handler';
 import { ClientSocketHandler } from './handlers/client.handler';
 import { NotificationSocketHandler } from './handlers/notification.handler';
 import { StaffSocketHandler } from './handlers/staff.handler';
+import { AnalyticsSocketHandler } from './handlers/analytics.handler';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -67,6 +68,7 @@ export class OptimizedWebSocketServer {
   public clientHandler: ClientSocketHandler;
   public notificationHandler: NotificationSocketHandler;
   public staffHandler: StaffSocketHandler;
+  public analyticsHandler: AnalyticsSocketHandler;
 
   constructor() {
     // Initialize rate limiter
@@ -82,6 +84,7 @@ export class OptimizedWebSocketServer {
     this.clientHandler = new ClientSocketHandler(this);
     this.notificationHandler = new NotificationSocketHandler(this);
     this.staffHandler = new StaffSocketHandler(this);
+    this.analyticsHandler = new AnalyticsSocketHandler(this);
     
     // Start batch processing
     this.startMessageBatching();
@@ -245,6 +248,7 @@ export class OptimizedWebSocketServer {
     this.clientHandler.register(socket);
     this.notificationHandler.register(socket);
     this.staffHandler.register(socket);
+    this.analyticsHandler.handleConnection(socket);
   }
 
   private async handleMessage(socket: AuthenticatedSocket, event: string, data: any): Promise<void> {
@@ -276,6 +280,9 @@ export class OptimizedWebSocketServer {
     const { userId, companyId } = socket.data.user;
     
     logger.info(`WebSocket disconnected: ${userId} from company ${companyId}, reason: ${reason}`);
+    
+    // Notify handlers about disconnection
+    this.analyticsHandler.handleDisconnection(socket);
     
     // Update connection tracking
     this.metrics.totalConnections--;
