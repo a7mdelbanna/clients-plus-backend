@@ -1,5 +1,6 @@
 import { PrismaClient, AppointmentStatus, AppointmentSource, ReminderType } from '@prisma/client';
 import { addMinutes, addDays, addWeeks, addMonths, format, parse, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
+import { enhancedNotificationService, EnhancedNotificationData } from './enhanced-notification.service';
 
 const prisma = new PrismaClient();
 
@@ -206,10 +207,8 @@ export class AppointmentService {
         await this.createRecurringSeries(appointment.id, input, userId);
       }
       
-      // 6. Schedule reminders
-      if (input.notifications) {
-        await this.scheduleReminders(appointment.id, input.notifications, appointment);
-      }
+      // 6. Send confirmation and schedule reminders
+      await this.sendAppointmentNotifications(appointment.id, 'confirmation');
       
       return appointment.id;
       
@@ -369,7 +368,12 @@ export class AppointmentService {
         internalNotes: reason ? `Cancellation reason: ${reason}` : undefined
       };
       
-      return await this.updateAppointment(appointmentId, updates, userId);
+      const result = await this.updateAppointment(appointmentId, updates, userId);
+      
+      // Send cancellation notification
+      await this.sendAppointmentNotifications(appointmentId, 'cancellation');
+      
+      return result;
     } catch (error) {
       console.error('Error cancelling appointment:', error);
       throw error;
@@ -406,6 +410,9 @@ export class AppointmentService {
         rescheduledTo: newAppointmentId,
         rescheduledAt: new Date()
       }, userId || 'system');
+      
+      // Send reschedule notification for the new appointment
+      await this.sendAppointmentNotifications(newAppointmentId, 'reschedule');
       
       return newAppointmentId;
     } catch (error) {
@@ -980,6 +987,77 @@ export class AppointmentService {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Send appointment notifications
+   */
+  async sendAppointmentNotifications(
+    appointmentId: string, 
+    type: 'confirmation' | 'reminder' | 'cancellation' | 'reschedule'
+  ): Promise<void> {
+    try {
+      const appointment = await this.getAppointmentById(appointmentId);
+      
+      const notificationData: EnhancedNotificationData = {
+        appointmentId: appointment.id,
+        companyId: appointment.companyId,
+        branchId: appointment.branchId || undefined,
+        clientId: appointment.clientId,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        clientEmail: appointment.clientEmail || undefined,
+        businessName: appointment.company.name,
+        serviceName: this.getServiceNames(appointment.services as any[]),
+        staffName: appointment.staff?.name,
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.startTime,
+        businessAddress: this.formatAddress(appointment.branch?.address as any),
+        businessPhone: this.getBusinessPhone(appointment.branch?.contact as any),
+        language: 'ar', // Default to Arabic, can be made dynamic
+        googleMapsLink: this.getGoogleMapsLink(appointment.branch?.address as any)
+      };
+
+      switch (type) {
+        case 'confirmation':
+          await enhancedNotificationService.sendAppointmentConfirmation(notificationData);
+          break;
+        case 'cancellation':
+          await enhancedNotificationService.sendAppointmentCancellation(notificationData);
+          break;
+        case 'reschedule':
+          await enhancedNotificationService.sendAppointmentReschedule(
+            notificationData, 
+            appointment.date, 
+            appointment.startTime
+          );
+          break;
+      }
+
+    } catch (error) {
+      console.error(`Error sending ${type} notifications:`, error);
+      // Don't throw here to avoid breaking the main appointment operation
+    }
+  }
+
+  /**
+   * Helper method to get Google Maps link
+   */
+  private getGoogleMapsLink(address: any): string | undefined {
+    if (!address) return undefined;
+    
+    let addressString = '';
+    if (typeof address === 'string') {
+      addressString = address;
+    } else {
+      addressString = [address.street, address.city, address.country].filter(Boolean).join(', ');
+    }
+    
+    if (addressString) {
+      return `https://maps.google.com/?q=${encodeURIComponent(addressString)}`;
+    }
+    
+    return undefined;
   }
 }
 

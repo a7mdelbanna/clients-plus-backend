@@ -9,6 +9,7 @@ import {
   DuplicateCheckResult 
 } from '../services/client.service';
 import { logger } from '../config/logger';
+import { PaginationService, extractPagination, extractFieldSelection } from '../utils/pagination.utils';
 
 export class ClientController {
   /**
@@ -476,7 +477,7 @@ export class ClientController {
   }
 
   /**
-   * Get all clients (for autocomplete/dropdown)
+   * Get all clients with pagination, filtering, and field selection
    */
   async getAllClients(req: Request, res: Response): Promise<void> {
     try {
@@ -489,20 +490,80 @@ export class ClientController {
         return;
       }
 
-      const clients = await clientService.getAllClients(req.user.companyId);
+      // Extract pagination and field selection parameters
+      const { page, limit } = extractPagination(req);
+      const { select } = extractFieldSelection(req);
+      
+      // Build filters from query parameters
+      const filters: any = {
+        companyId: req.user.companyId,
+        isActive: true
+      };
+
+      // Add optional filters
+      if (req.query.status) {
+        filters.status = req.query.status;
+      }
+      if (req.query.search) {
+        const searchTerm = req.query.search as string;
+        filters.OR = [
+          { firstName: { contains: searchTerm, mode: 'insensitive' } },
+          { lastName: { contains: searchTerm, mode: 'insensitive' } },
+          { email: { contains: searchTerm, mode: 'insensitive' } },
+          { phone: { contains: searchTerm, mode: 'insensitive' } }
+        ];
+      }
+      if (req.query.gender) {
+        filters.gender = req.query.gender;
+      }
+
+      // Build query options
+      const queryOptions: any = {
+        where: filters,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      };
+
+      // Add field selection if specified
+      if (select && Object.keys(select).length > 0) {
+        queryOptions.select = select;
+      } else {
+        // Default fields to return for performance
+        queryOptions.select = {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          status: true,
+          gender: true,
+          createdAt: true,
+          updatedAt: true
+        };
+      }
+
+      // Execute queries in parallel for better performance
+      const [clients, totalCount] = await Promise.all([
+        clientService.findManyClients(queryOptions),
+        clientService.countClients(filters)
+      ]);
+
+      const result = PaginationService.paginate(clients, totalCount, page, limit);
 
       res.status(200).json({
         success: true,
-        message: 'All clients retrieved successfully',
-        data: clients,
+        message: 'Clients retrieved successfully',
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (error) {
       logger.error('Get all clients error:', error);
       
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve all clients',
-        error: 'ALL_CLIENTS_RETRIEVAL_FAILED',
+        message: 'Failed to retrieve clients',
+        error: 'CLIENTS_RETRIEVAL_FAILED',
       });
     }
   }

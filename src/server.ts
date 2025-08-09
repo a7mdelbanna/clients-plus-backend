@@ -3,6 +3,7 @@ import App from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { webSocketServer } from './websocket/socket.server';
+import { notificationCronService } from './cron/notification.cron';
 
 class ServerManager {
   private app: App;
@@ -29,6 +30,10 @@ class ServerManager {
       // Initialize WebSocket server
       webSocketServer.initialize(this.server);
       logger.info(`🔌 WebSocket server initialized on port ${port}`);
+      
+      // Initialize notification cron jobs
+      notificationCronService.initializeCronJobs();
+      logger.info(`⏰ Notification cron jobs initialized`);
     });
 
     // Handle server errors

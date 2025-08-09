@@ -16,6 +16,7 @@ import { database } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { redisService } from './services/redis.service';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -27,6 +28,7 @@ import invoiceRoutes from './routes/invoice.routes';
 import branchRoutes from './routes/branch.routes';
 import serviceRoutes from './routes/service.routes';
 import staffRoutes from './routes/staff.routes';
+import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
 
 class App {
@@ -71,8 +73,22 @@ class App {
       allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
     }));
 
-    // Compression middleware
-    this.app.use(compression());
+    // Enhanced compression middleware
+    this.app.use(compression({
+      level: 6, // Optimal balance between compression and CPU usage
+      threshold: 1024, // Only compress responses larger than 1KB
+      filter: (req, res) => {
+        // Don't compress if client doesn't support it
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        
+        // Compress JSON, text, and other compressible content types
+        return compression.filter(req, res);
+      },
+      // Enable Brotli compression if supported
+      memLevel: 8
+    }));
 
     // Rate limiting
     const limiter = rateLimit({
@@ -116,6 +132,7 @@ class App {
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);
     this.app.use(`${apiPrefix}/invoices`, invoiceRoutes);
+    this.app.use(`${apiPrefix}/notifications`, notificationRoutes);
 
     // Root endpoint
     this.app.get('/', (req: Request, res: Response) => {
@@ -189,8 +206,12 @@ class App {
     try {
       await database.connect();
       logger.info('Database connection established');
+      
+      // Connect to Redis for caching
+      await redisService.connect();
+      logger.info('Redis connection established');
     } catch (error) {
-      logger.error('Failed to connect to database:', error);
+      logger.error('Failed to connect to database/Redis:', error);
       process.exit(1);
     }
   }
@@ -198,6 +219,7 @@ class App {
   public async close(): Promise<void> {
     try {
       await database.disconnect();
+      await redisService.disconnect();
       logger.info('Application closed gracefully');
     } catch (error) {
       logger.error('Error during application shutdown:', error);

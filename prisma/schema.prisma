@@ -61,10 +61,13 @@ model Company {
   auditLogs      AuditLog[]
   products       Product[]
   productCategories ProductCategory[]
+  notificationLogs NotificationLog[]
 
   @@map("companies")
   @@index([subscriptionStatus])
   @@index([isActive])
+  @@index([subscriptionStatus, isActive])
+  @@index([createdAt])
 }
 
 // ============================================================================
@@ -116,6 +119,9 @@ model User {
   @@index([companyId])
   @@index([email])
   @@index([isActive])
+  @@index([companyId, isActive])
+  @@index([companyId, role])
+  @@index([lastLoginAt])
 }
 
 // ============================================================================
@@ -171,12 +177,15 @@ model Branch {
   inventories    Inventory[]
   inventoryMovements InventoryMovement[]
   invoices       Invoice[]
+  notificationLogs NotificationLog[]
 
   @@map("branches")
   @@index([companyId])
   @@index([type])
   @@index([status])
   @@index([isActive])
+  @@index([companyId, status])
+  @@index([companyId, isActive])
 }
 
 // ============================================================================
@@ -234,6 +243,10 @@ model Client {
   @@index([email])
   @@index([status])
   @@index([isActive])
+  @@index([companyId, status])
+  @@index([companyId, isActive])
+  @@index([companyId, createdAt])
+  @@index([createdAt])
 }
 
 // ============================================================================
@@ -348,6 +361,10 @@ model Staff {
   @@index([isActive])
   @@index([email])
   @@index([order])
+  @@index([companyId, status])
+  @@index([companyId, isActive])
+  @@index([companyId, primaryBranchId])
+  @@index([primaryBranchId, status])
 }
 
 // ============================================================================
@@ -424,6 +441,9 @@ model Service {
   @@index([active])
   @@index([type])
   @@index([order])
+  @@index([companyId, active])
+  @@index([companyId, categoryId])
+  @@index([companyId, type])
 }
 
 model ServiceCategory {
@@ -662,8 +682,8 @@ model Appointment {
   client            Client @relation(fields: [clientId], references: [id])
   staff             Staff? @relation(fields: [staffId], references: [id])
   invoices          AppointmentInvoice[]
-  invoice           Invoice?
   reminders         AppointmentReminder[]
+  invoice           Invoice?
   
   @@index([companyId, branchId, date])
   @@index([clientId])
@@ -672,6 +692,12 @@ model Appointment {
   @@index([status])
   @@index([recurringGroupId])
   @@index([source])
+  @@index([companyId, status])
+  @@index([branchId, date, status])
+  @@index([staffId, date, startTime])
+  @@index([clientId, createdAt])
+  @@index([date, status])
+  @@index([companyId, date, status])
   
   @@map("appointments")
 }
@@ -800,6 +826,12 @@ model Invoice {
   @@index([paymentStatus])
   @@index([dueDate])
   @@index([invoiceDate])
+  @@index([companyId, status])
+  @@index([companyId, paymentStatus])
+  @@index([branchId, status])
+  @@index([clientId, status])
+  @@index([companyId, dueDate])
+  @@index([status, dueDate])
 }
 
 model InvoiceItem {
@@ -1348,5 +1380,89 @@ enum InventoryMovementType {
   OUT         // Stock sold/used
   TRANSFER    // Transfer between branches
   ADJUSTMENT  // Manual adjustment
+}
+
+// ============================================================================
+// NOTIFICATION SYSTEM
+// ============================================================================
+
+model NotificationLog {
+  id             String    @id @default(cuid())
+  
+  // Job tracking
+  jobId          String    @unique // Unique job identifier
+  queueJobId     String?   // Bull queue job ID
+  
+  // Notification details
+  type           NotificationType
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?   @relation(fields: [branchId], references: [id])
+  
+  // Recipient information
+  recipient      String    // Recipient name
+  recipientPhone String?   // Phone number
+  recipientEmail String?   // Email address
+  
+  // Status and result
+  status         NotificationStatus  @default(PENDING)
+  priority       NotificationPriority @default(NORMAL)
+  result         String?   // JSON result from provider
+  error          String?   // Error message if failed
+  
+  // Scheduling
+  scheduledFor   DateTime?
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  
+  // Metadata
+  metadata       Json?     // Additional context
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("notification_logs")
+  @@index([companyId])
+  @@index([branchId])
+  @@index([type])
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([createdAt])
+}
+
+
+// Notification system enums
+enum NotificationType {
+  SMS
+  EMAIL
+  WHATSAPP
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ReminderType {
+  SMS
+  EMAIL
+  WHATSAPP
+  PUSH
 }
 
