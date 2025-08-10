@@ -25,6 +25,15 @@ export interface RegisterUserData {
   role?: UserRole;
 }
 
+export interface RegisterWithCompanyData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  companyName?: string; // Optional, will use user's name if not provided
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -157,6 +166,120 @@ export class AuthService {
       };
     } catch (error) {
       logger.error('Registration failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register a new user with a new company (for owners)
+   */
+  async registerWithCompany(userData: RegisterWithCompanyData): Promise<AuthResult> {
+    try {
+      // Check if user already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: userData.email },
+      });
+
+      if (existingUser) {
+        throw new Error('User with this email already exists');
+      }
+
+      // Hash password
+      const hashedPassword = await this.hashPassword(userData.password);
+
+      // Create company, user, and default branch in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the company
+        const company = await tx.company.create({
+          data: {
+            name: userData.companyName || `${userData.firstName}'s Company`,
+            email: userData.email,
+            subscriptionPlan: 'BASIC',
+            subscriptionStatus: 'ACTIVE',
+            billingCycle: 'MONTHLY',
+            isActive: true,
+          },
+        });
+
+        // Create the user as the owner
+        const user = await tx.user.create({
+          data: {
+            email: userData.email,
+            password: hashedPassword,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            phone: userData.phone,
+            companyId: company.id,
+            role: UserRole.ADMIN, // Owner gets ADMIN role
+            isActive: true,
+            isVerified: false, // Require email verification
+          },
+        });
+
+        // Create a default branch for the company
+        // This prevents 400 errors when BranchContext tries to fetch branches
+        const defaultBranch = await tx.branch.create({
+          data: {
+            companyId: company.id,
+            name: company.name, // Use company name as initial branch name
+            type: 'MAIN',
+            status: 'ACTIVE',
+            isMain: true, // Legacy field for compatibility
+            isActive: true, // Legacy field for compatibility
+            // Minimal required address structure
+            address: {
+              street: '',
+              city: '',
+              state: '',
+              postalCode: '',
+              country: '',
+            },
+            // Basic contact info (can be updated in setup wizard)
+            contact: {
+              email: userData.email,
+              phones: [],
+            },
+            // Default operating hours (closed initially, to be configured in setup)
+            operatingHours: {
+              monday: { open: '09:00', close: '18:00', closed: true },
+              tuesday: { open: '09:00', close: '18:00', closed: true },
+              wednesday: { open: '09:00', close: '18:00', closed: true },
+              thursday: { open: '09:00', close: '18:00', closed: true },
+              friday: { open: '09:00', close: '18:00', closed: true },
+              saturday: { open: '09:00', close: '18:00', closed: true },
+              sunday: { open: '09:00', close: '18:00', closed: true },
+            },
+            // Basic settings
+            settings: {
+              timezone: 'Africa/Cairo',
+              currency: 'EGP',
+              language: 'ar',
+              allowOnlineBooking: false,
+              autoConfirmAppointments: false,
+              requireDepositForBooking: false,
+            },
+          },
+        });
+
+        logger.info(`Default branch created: ${defaultBranch.id} for company: ${company.id}`);
+
+        return { user, company, defaultBranch };
+      });
+
+      // Generate tokens
+      const userPayload = this.createUserPayload(result.user);
+      const refreshPayload = this.createRefreshPayload(result.user);
+      const tokens = generateTokenPair(userPayload, refreshPayload);
+
+      // Log successful registration
+      logger.info(`User registered with new company: ${result.user.email} (Company: ${result.company.name})`);
+
+      return {
+        user: this.sanitizeUser(result.user),
+        tokens,
+      };
+    } catch (error) {
+      logger.error('Registration with company failed:', error);
       throw error;
     }
   }

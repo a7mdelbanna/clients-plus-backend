@@ -172,6 +172,7 @@ export class BookingService {
         
         date: bookingData.date,
         startTime: bookingData.startTime,
+        endTime: bookingData.startTime, // Will be calculated based on totalDuration
         totalDuration,
         
         services: services.map(service => ({
@@ -188,7 +189,7 @@ export class BookingService {
         notes: bookingData.notes,
         source: bookingData.source === 'WEB' ? AppointmentSource.ONLINE 
           : bookingData.source === 'PHONE' ? AppointmentSource.PHONE 
-          : AppointmentSource.APP,
+          : AppointmentSource.API,
         bookingLinkId: bookingData.bookingLinkId,
         
         notifications: [

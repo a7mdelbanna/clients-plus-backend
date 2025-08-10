@@ -95,6 +95,16 @@ export class BranchService {
         throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
       }
 
+      // Check branch limit based on subscription plan
+      const limitInfo = await this.getBranchLimitInfo(companyId);
+      if (!limitInfo.canAdd) {
+        throw new ApiError(
+          403, 
+          `Branch limit reached. Your ${limitInfo.plan} plan allows ${limitInfo.limit} branches. You currently have ${limitInfo.currentCount}.`,
+          'BRANCH_LIMIT_EXCEEDED'
+        );
+      }
+
       // If this is being set as main branch, unset other main branches
       if (data.type === BranchType.MAIN) {
         await this.unsetMainBranches(companyId);
@@ -519,16 +529,56 @@ export class BranchService {
       const currentCount = await this.getBranchCount(companyId);
       
       const limits = {
-        BASIC: 3,
-        PROFESSIONAL: 5,
-        ENTERPRISE: Infinity,
-        CUSTOM: Infinity,
+        BASIC: 2,          // Trial/Basic plan: 2 branches
+        PROFESSIONAL: 5,   // Professional plan: 5 branches
+        ENTERPRISE: Infinity,  // Enterprise: unlimited
+        CUSTOM: Infinity,     // Custom: unlimited
       };
       
       return currentCount < limits[planType];
     } catch (error) {
       logger.error('Error checking branch limit:', error);
       throw new ApiError(500, 'Failed to check branch limit', 'BRANCH_LIMIT_CHECK_ERROR');
+    }
+  }
+
+  /**
+   * Get branch limit information for a company
+   */
+  async getBranchLimitInfo(companyId: string): Promise<{
+    canAdd: boolean;
+    currentCount: number;
+    limit: number | string;
+    plan: string;
+  }> {
+    try {
+      // Get company to check plan
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { subscriptionPlan: true },
+      });
+
+      const plan = (company?.subscriptionPlan || 'BASIC') as 'BASIC' | 'PROFESSIONAL' | 'ENTERPRISE' | 'CUSTOM';
+      const currentCount = await this.getBranchCount(companyId);
+      
+      const limits = {
+        BASIC: 2,
+        PROFESSIONAL: 5,
+        ENTERPRISE: Infinity,
+        CUSTOM: Infinity,
+      };
+      
+      const limit = limits[plan];
+      
+      return {
+        canAdd: currentCount < limit,
+        currentCount,
+        limit: limit === Infinity ? 'Unlimited' : limit,
+        plan,
+      };
+    } catch (error) {
+      logger.error('Error getting branch limit info:', error);
+      throw new ApiError(500, 'Failed to get branch limit info', 'BRANCH_LIMIT_INFO_ERROR');
     }
   }
 

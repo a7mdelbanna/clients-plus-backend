@@ -535,7 +535,7 @@ export class NotificationQueue {
       await prisma.notificationLog.upsert({
         where: { jobId: job.id },
         update: {
-          status,
+          status: status as any,
           result: result ? JSON.stringify(result) : null,
           error,
           updatedAt: new Date()
@@ -543,18 +543,18 @@ export class NotificationQueue {
         create: {
           jobId: job.id,
           queueJobId,
-          type: job.type,
+          type: job.type.toUpperCase() as any,
           companyId: job.companyId,
           branchId: job.branchId,
           recipient: job.data.recipient.name,
           recipientPhone: job.data.recipient.phone,
           recipientEmail: job.data.recipient.email,
-          status,
-          priority: job.priority,
+          status: status as any,
+          priority: job.priority.toUpperCase() as any,
           scheduledFor: job.scheduledFor,
           result: result ? JSON.stringify(result) : null,
           error,
-          metadata: job.metadata ? JSON.stringify(job.metadata) : null
+          metadata: job.metadata ? JSON.stringify(job.metadata) : {}
         }
       });
     } catch (dbError) {

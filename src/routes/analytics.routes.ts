@@ -356,6 +356,77 @@ router.get('/dashboard', analyticsController.getDashboardMetrics.bind(analyticsC
 
 /**
  * @swagger
+ * /api/v1/analytics/dashboard/sales:
+ *   get:
+ *     summary: Get dashboard sales metrics
+ *     description: Retrieve sales metrics for dashboard (Firebase-compatible format)
+ *     tags:
+ *       - Dashboard
+ *     parameters:
+ *       - in: query
+ *         name: branchId
+ *         schema:
+ *           type: string
+ *         description: Filter by specific branch
+ *     responses:
+ *       200:
+ *         description: Dashboard sales metrics retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/dashboard/sales', analyticsController.getDashboardSalesMetrics.bind(analyticsController));
+
+/**
+ * @swagger
+ * /api/v1/analytics/sales:
+ *   post:
+ *     summary: Get comprehensive sales analytics
+ *     description: Retrieve comprehensive sales analytics (Firebase-compatible format)
+ *     tags:
+ *       - Analytics
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               branchId:
+ *                 type: string
+ *               staffId:
+ *                 type: string
+ *               productId:
+ *                 type: string
+ *               paymentMethod:
+ *                 type: string
+ *               dateRange:
+ *                 type: object
+ *                 properties:
+ *                   startDate:
+ *                     type: string
+ *                     format: date
+ *                   endDate:
+ *                     type: string
+ *                     format: date
+ *                 required:
+ *                   - startDate
+ *                   - endDate
+ *             required:
+ *               - dateRange
+ *     responses:
+ *       200:
+ *         description: Sales analytics retrieved successfully
+ *       400:
+ *         description: Invalid filters
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/sales', analyticsController.getSalesAnalytics.bind(analyticsController));
+
+/**
+ * @swagger
  * /api/v1/analytics/dashboard/kpis:
  *   get:
  *     summary: Get KPI metrics

@@ -29,9 +29,10 @@ import branchRoutes from './routes/branch.routes';
 import serviceRoutes from './routes/service.routes';
 import staffRoutes from './routes/staff.routes';
 import appointmentRoutes from './routes/appointment.routes';
+import setupRoutes from './routes/setup.routes';
 // import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
-// import { analyticsRoutes } from './routes/analytics.routes';
+import { analyticsRoutes } from './routes/analytics.routes';
 // import { reportsRoutes } from './routes/reports.routes';
 import publicRoutes from './routes/public.routes';
 
@@ -129,13 +130,15 @@ class App {
     
     this.app.use(`${apiPrefix}/auth`, authRoutes);
     this.app.use(`${apiPrefix}/companies`, companyRoutes);
-    this.app.use(`${apiPrefix}`, branchRoutes); // Mount branch routes directly under api prefix
+    this.app.use(`${apiPrefix}/company`, branchRoutes); // Mount branch routes under /company to avoid conflicts
     this.app.use(`${apiPrefix}/services`, serviceRoutes);
     this.app.use(`${apiPrefix}/staff`, staffRoutes);
     this.app.use(`${apiPrefix}/appointments`, appointmentRoutes);
+    this.app.use(`${apiPrefix}/setup`, setupRoutes);
     this.app.use(`${apiPrefix}/users`, userRoutes);
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);
+    this.app.use(`${apiPrefix}/analytics`, analyticsRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);

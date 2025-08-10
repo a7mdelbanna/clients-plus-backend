@@ -127,6 +127,35 @@ const registerValidation = [
     .withMessage('Invalid role'),
 ];
 
+const registerWithCompanyValidation = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+  body('firstName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('lastName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
+  body('phone')
+    .optional()
+    .isMobilePhone('any')
+    .withMessage('Please provide a valid phone number'),
+  body('companyName')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Company name must be less than 100 characters'),
+];
+
 const loginValidation = [
   body('email')
     .isEmail()
@@ -227,6 +256,66 @@ const resetPasswordValidation = [
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/register', registerValidation, authController.register);
+
+/**
+ * @swagger
+ * /auth/register-with-company:
+ *   post:
+ *     summary: Register a new user with a new company (for company owners)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - firstName
+ *               - lastName
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: owner@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: SecurePass123
+ *               firstName:
+ *                 type: string
+ *                 example: John
+ *               lastName:
+ *                 type: string
+ *                 example: Doe
+ *               phone:
+ *                 type: string
+ *                 example: "+1234567890"
+ *               companyName:
+ *                 type: string
+ *                 example: "My Company"
+ *     responses:
+ *       201:
+ *         description: User and company registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: User already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post('/register-with-company', registerWithCompanyValidation, authController.registerWithCompany);
 
 /**
  * @swagger

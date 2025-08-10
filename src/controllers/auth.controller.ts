@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { UserRole } from '@prisma/client';
-import { authService, RegisterUserData, LoginCredentials } from '../services/auth.service';
+import { authService, RegisterUserData, RegisterWithCompanyData, LoginCredentials } from '../services/auth.service';
 import { extractTokenFromHeader, generateTokenPair, generateTokenId } from '../utils/jwt.utils';
 import { logger } from '../config/logger';
 import firebaseService from '../config/firebase';
@@ -83,6 +83,83 @@ export class AuthController {
           statusCode = 400;
           errorCode = 'COMPANY_INACTIVE';
           message = 'Company account is not active';
+        }
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message,
+        error: errorCode,
+      });
+    }
+  }
+
+  /**
+   * Register a new user with a new company
+   */
+  async registerWithCompany(req: Request, res: Response): Promise<void> {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array(),
+        });
+        return;
+      }
+
+      const {
+        email,
+        password,
+        firstName,
+        lastName,
+        phone,
+        companyName,
+      } = req.body;
+
+      // Validate required fields
+      if (!email || !password || !firstName || !lastName) {
+        res.status(400).json({
+          success: false,
+          message: 'Missing required fields: email, password, firstName, lastName',
+          error: 'MISSING_REQUIRED_FIELDS',
+        });
+        return;
+      }
+
+      const userData: RegisterWithCompanyData = {
+        email,
+        password,
+        firstName,
+        lastName,
+        phone,
+        companyName,
+      };
+
+      const result = await authService.registerWithCompany(userData);
+
+      res.status(201).json({
+        success: true,
+        message: 'User and company registered successfully',
+        data: {
+          user: result.user,
+          tokens: result.tokens,
+        },
+      });
+    } catch (error) {
+      logger.error('Registration with company error:', error);
+      
+      let statusCode = 500;
+      let errorCode = 'REGISTRATION_FAILED';
+      let message = 'Registration failed';
+
+      if (error instanceof Error) {
+        if (error.message.includes('already exists')) {
+          statusCode = 409;
+          errorCode = 'USER_EXISTS';
+          message = 'User with this email already exists';
         }
       }
 

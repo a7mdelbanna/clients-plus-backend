@@ -174,14 +174,16 @@ const assignResourcesValidation = [
 ];
 
 // Parameter validation
+// Note: Prisma uses CUIDs by default, not UUIDs
+// CUIDs are 25 characters, but we'll be flexible to support both UUIDs and CUIDs
 const companyBranchParams = [
-  param('companyId').isUUID().withMessage('Invalid company ID'),
-  param('branchId').isUUID().withMessage('Invalid branch ID'),
+  param('companyId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid company ID'),
+  param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
   handleValidationErrors,
 ];
 
 const companyParams = [
-  param('companyId').isUUID().withMessage('Invalid company ID'),
+  param('companyId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid company ID'),
   handleValidationErrors,
 ];
 

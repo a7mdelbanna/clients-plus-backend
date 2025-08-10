@@ -162,7 +162,7 @@ export class AppointmentService {
             
             // Status
             status: input.status || AppointmentStatus.PENDING,
-            paymentStatus: input.paymentStatus || PaymentStatus.PENDING,
+            paymentStatus: (input.paymentStatus as PaymentStatus) || PaymentStatus.PENDING,
             
             // Recurring
             isRecurring: input.isRecurring || false,
@@ -398,33 +398,33 @@ export class AppointmentService {
         companyId: currentAppointment.companyId,
         branchId: currentAppointment.branchId,
         clientId: currentAppointment.clientId,
-        staffId: newStaffId || currentAppointment.staffId,
-        resourceId: currentAppointment.resourceId,
+        staffId: (newStaffId || currentAppointment.staffId) as string,
+        resourceId: currentAppointment.resourceId || undefined,
         clientName: currentAppointment.clientName,
         clientPhone: currentAppointment.clientPhone,
-        clientEmail: currentAppointment.clientEmail,
+        clientEmail: currentAppointment.clientEmail || undefined,
         isNewClient: currentAppointment.isNewClient,
-        staffName: currentAppointment.staffName,
         date: newDate,
         startTime: newStartTime,
+        endTime: this.calculateEndTime(newStartTime, currentAppointment.totalDuration),
         totalDuration: currentAppointment.totalDuration,
-        services: currentAppointment.services as ServiceAppointmentInput[],
-        categoryId: currentAppointment.categoryId,
-        totalPrice: currentAppointment.totalPrice,
+        services: (currentAppointment.services as unknown) as ServiceAppointmentInput[],
+        categoryId: currentAppointment.categoryId || undefined,
+        totalPrice: currentAppointment.totalPrice.toNumber(),
         status: AppointmentStatus.PENDING,
         paymentStatus: currentAppointment.paymentStatus,
         isRecurring: false, // Don't copy recurring pattern for reschedule
-        title: currentAppointment.title,
-        notes: currentAppointment.notes,
-        internalNotes: currentAppointment.internalNotes,
-        color: currentAppointment.color,
-        startingPrice: currentAppointment.startingPrice,
-        prepaidAmount: currentAppointment.prepaidAmount,
-        discount: currentAppointment.discount,
-        resources: currentAppointment.resources,
+        title: currentAppointment.title || undefined,
+        notes: currentAppointment.notes || undefined,
+        internalNotes: currentAppointment.internalNotes || undefined,
+        color: currentAppointment.color || undefined,
+        startingPrice: currentAppointment.startingPrice?.toNumber() || undefined,
+        prepaidAmount: currentAppointment.prepaidAmount?.toNumber() || undefined,
+        discount: currentAppointment.discount?.toNumber() || undefined,
+        resources: currentAppointment.resources as any[] || undefined,
         source: currentAppointment.source,
-        bookingLinkId: currentAppointment.bookingLinkId,
-        notifications: currentAppointment.notifications as NotificationConfig[]
+        bookingLinkId: currentAppointment.bookingLinkId || undefined,
+        notifications: (currentAppointment.notifications as unknown) as NotificationConfig[]
       };
       
       const newAppointmentId = await this.createAppointment(newAppointmentInput, userId || 'system');

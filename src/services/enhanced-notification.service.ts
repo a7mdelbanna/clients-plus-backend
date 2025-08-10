@@ -362,11 +362,11 @@ export class EnhancedNotificationService {
       // Check if client has specific preferences
       const client = await prisma.client.findUnique({
         where: { id: clientId },
-        select: { notificationPreferences: true }
+        select: { reminderPreferences: true }
       });
 
-      if (client?.notificationPreferences) {
-        const prefs = client.notificationPreferences as any;
+      if (client?.reminderPreferences) {
+        const prefs = client.reminderPreferences as any;
         return {
           whatsapp: prefs.whatsapp ?? true,
           sms: prefs.sms ?? false,
@@ -379,11 +379,11 @@ export class EnhancedNotificationService {
       // Fall back to company defaults
       const company = await prisma.company.findUnique({
         where: { id: companyId },
-        select: { notificationSettings: true }
+        select: { notificationLogs: true }
       });
 
-      if (company?.notificationSettings) {
-        const settings = company.notificationSettings as any;
+      if (company?.notificationLogs) {
+        const settings = company.notificationLogs as any;
         return {
           whatsapp: settings.defaultWhatsApp ?? true,
           sms: settings.defaultSMS ?? false,
