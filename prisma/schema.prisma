@@ -1459,10 +1459,3 @@ enum NotificationPriority {
   CRITICAL
 }
 
-enum ReminderType {
-  SMS
-  EMAIL
-  WHATSAPP
-  PUSH
-}
-
