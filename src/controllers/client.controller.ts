@@ -821,6 +821,271 @@ export class ClientController {
   }
 
   /**
+   * Get client visits history
+   */
+  async getClientVisits(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Client ID is required',
+          error: 'MISSING_CLIENT_ID',
+        });
+        return;
+      }
+
+      // Parse pagination parameters
+      const pagination = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: Math.min(parseInt(req.query.limit as string) || 10, 100),
+      };
+
+      const visits = await clientService.getClientVisits(id, req.user.companyId, pagination);
+
+      res.status(200).json({
+        success: true,
+        message: 'Client visits retrieved successfully',
+        data: visits.data,
+        pagination: visits.pagination,
+      });
+    } catch (error) {
+      logger.error('Get client visits error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve client visits',
+        error: 'CLIENT_VISITS_RETRIEVAL_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Get client balance
+   */
+  async getClientBalance(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Client ID is required',
+          error: 'MISSING_CLIENT_ID',
+        });
+        return;
+      }
+
+      const balance = await clientService.getClientBalance(id, req.user.companyId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Client balance retrieved successfully',
+        data: balance,
+      });
+    } catch (error) {
+      logger.error('Get client balance error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve client balance',
+        error: 'CLIENT_BALANCE_RETRIEVAL_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Get client activities/history
+   */
+  async getClientActivities(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Client ID is required',
+          error: 'MISSING_CLIENT_ID',
+        });
+        return;
+      }
+
+      // Parse pagination and filter parameters
+      const pagination = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: Math.min(parseInt(req.query.limit as string) || 20, 100),
+      };
+
+      const filter = {
+        type: req.query.type as string,
+        from: req.query.from ? new Date(req.query.from as string) : undefined,
+        to: req.query.to ? new Date(req.query.to as string) : undefined,
+      };
+
+      const activities = await clientService.getClientActivities(id, req.user.companyId, filter, pagination);
+
+      res.status(200).json({
+        success: true,
+        message: 'Client activities retrieved successfully',
+        data: activities.data,
+        pagination: activities.pagination,
+      });
+    } catch (error) {
+      logger.error('Get client activities error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve client activities',
+        error: 'CLIENT_ACTIVITIES_RETRIEVAL_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Get client transactions
+   */
+  async getClientTransactions(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Client ID is required',
+          error: 'MISSING_CLIENT_ID',
+        });
+        return;
+      }
+
+      // Parse pagination and filter parameters
+      const pagination = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: Math.min(parseInt(req.query.limit as string) || 20, 100),
+      };
+
+      const filter = {
+        type: req.query.type as string,
+        status: req.query.status as string,
+        from: req.query.from ? new Date(req.query.from as string) : undefined,
+        to: req.query.to ? new Date(req.query.to as string) : undefined,
+      };
+
+      const transactions = await clientService.getClientTransactions(id, req.user.companyId, filter, pagination);
+
+      res.status(200).json({
+        success: true,
+        message: 'Client transactions retrieved successfully',
+        data: transactions.data,
+        pagination: transactions.pagination,
+      });
+    } catch (error) {
+      logger.error('Get client transactions error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve client transactions',
+        error: 'CLIENT_TRANSACTIONS_RETRIEVAL_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Bulk import clients
+   */
+  async importClients(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { clients, options } = req.body;
+
+      if (!clients || !Array.isArray(clients) || clients.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Clients array is required',
+          error: 'MISSING_CLIENTS_DATA',
+        });
+        return;
+      }
+
+      if (clients.length > 1000) {
+        res.status(400).json({
+          success: false,
+          message: 'Maximum 1000 clients can be imported at once',
+          error: 'IMPORT_LIMIT_EXCEEDED',
+        });
+        return;
+      }
+
+      const importOptions = {
+        skipDuplicates: options?.skipDuplicates || false,
+        updateExisting: options?.updateExisting || false,
+        validateData: options?.validateData !== false,
+        ...options,
+      };
+
+      const result = await clientService.importClients(clients, req.user.companyId, req.user.userId, importOptions);
+
+      res.status(200).json({
+        success: true,
+        message: `Import completed: ${result.successful} successful, ${result.failed} failed, ${result.skipped} skipped`,
+        data: result,
+      });
+    } catch (error) {
+      logger.error('Import clients error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to import clients',
+        error: 'CLIENT_IMPORT_FAILED',
+      });
+    }
+  }
+
+  /**
    * Health check for client service
    */
   async healthCheck(req: Request, res: Response): Promise<void> {

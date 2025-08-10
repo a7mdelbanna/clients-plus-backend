@@ -907,6 +907,204 @@ export class ServiceService {
 
     return this.getServices(companyId, combinedFilter, pagination);
   }
+
+  /**
+   * Duplicate service
+   */
+  async duplicateService(serviceId: string, companyId: string, newName?: string, userId?: string): Promise<ExtendedService> {
+    try {
+      const originalService = await this.getService(serviceId, companyId);
+      
+      if (!originalService) {
+        throw new Error('Service not found');
+      }
+
+      // Prepare duplicate data
+      const duplicateData: Omit<ExtendedService, 'id'> = {
+        ...originalService,
+        name: newName || `${originalService.name} (Copy)`,
+        createdBy: userId,
+      };
+
+      delete (duplicateData as any).id;
+      delete (duplicateData as any).createdAt;
+      delete (duplicateData as any).updatedAt;
+
+      // Create duplicate service
+      const duplicatedServiceId = await this.createService(duplicateData, userId || originalService.createdBy || '');
+      
+      // Get staff assignments from original service
+      const originalStaffAssignments = await this.getServiceStaff(serviceId, companyId);
+      
+      // Copy staff assignments to duplicated service
+      if (originalStaffAssignments.length > 0) {
+        await this.assignStaffToService(duplicatedServiceId, companyId, originalStaffAssignments);
+      }
+
+      const duplicatedService = await this.getService(duplicatedServiceId, companyId);
+      
+      if (!duplicatedService) {
+        throw new Error('Failed to retrieve duplicated service');
+      }
+
+      logger.info(`Service duplicated successfully: ${serviceId} -> ${duplicatedServiceId}`);
+      return duplicatedService;
+    } catch (error) {
+      logger.error('Error duplicating service:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get service pricing matrix
+   */
+  async getServicePricingMatrix(companyId: string, branchId?: string, categoryId?: string): Promise<any> {
+    try {
+      const filter: ServiceFilter = {
+        active: true,
+        branchId,
+        categoryId,
+      };
+
+      const result = await this.getServices(companyId, filter, { limit: 1000 });
+      const services = result.data;
+
+      // Build pricing matrix
+      const servicesWithStaff = await Promise.all(
+        services.map(async (service) => {
+          const staff = await this.getServiceStaff(service.id!, companyId);
+          return {
+            ...service,
+            staffAssignments: staff,
+          };
+        })
+      );
+
+      const pricingMatrix = {
+        services: servicesWithStaff.map(service => ({
+          id: service.id,
+          name: service.name,
+          categoryId: service.categoryId,
+          basePrice: service.startingPrice,
+          priceRange: service.priceRange,
+          staffPricing: service.staffAssignments?.map(staff => ({
+            staffId: staff.staffId,
+            price: staff.price || service.startingPrice,
+            duration: staff.duration || service.duration,
+          })) || [],
+        })),
+        summary: {
+          totalServices: servicesWithStaff.length,
+          priceRange: {
+            min: servicesWithStaff.length > 0 ? Math.min(...servicesWithStaff.map(s => s.startingPrice)) : 0,
+            max: servicesWithStaff.length > 0 ? Math.max(...servicesWithStaff.map(s => s.startingPrice)) : 0,
+          },
+        },
+      };
+
+      return pricingMatrix;
+    } catch (error) {
+      logger.error('Error getting service pricing matrix:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk import services
+   */
+  async bulkImportServices(servicesData: Partial<ExtendedService>[], companyId: string, userId: string): Promise<any> {
+    try {
+      const results = {
+        successful: [] as string[],
+        failed: [] as { index: number; error: string; data: any }[],
+        summary: {
+          total: servicesData.length,
+          successful: 0,
+          failed: 0,
+        },
+      };
+
+      for (let i = 0; i < servicesData.length; i++) {
+        try {
+          const serviceData = servicesData[i];
+          
+          // Validate required fields
+          if (!serviceData.name || !serviceData.startingPrice || !serviceData.duration || !serviceData.onlineBooking) {
+            throw new Error('Missing required fields: name, startingPrice, duration, onlineBooking');
+          }
+
+          const serviceToCreate: Omit<ExtendedService, 'id'> = {
+            ...serviceData,
+            companyId,
+            active: serviceData.active !== undefined ? serviceData.active : true,
+            type: serviceData.type || ServiceType.APPOINTMENT,
+          } as Omit<ExtendedService, 'id'>;
+
+          const serviceId = await this.createService(serviceToCreate, userId);
+          results.successful.push(serviceId);
+          results.summary.successful++;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          results.failed.push({
+            index: i,
+            error: errorMessage,
+            data: servicesData[i],
+          });
+          results.summary.failed++;
+        }
+      }
+
+      logger.info(`Bulk import completed: ${results.summary.successful}/${results.summary.total} successful`);
+      return results;
+    } catch (error) {
+      logger.error('Error bulk importing services:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update service images
+   */
+  async updateServiceImages(serviceId: string, companyId: string, images: ServiceImage[]): Promise<void> {
+    try {
+      const service = await this.getService(serviceId, companyId);
+      if (!service) {
+        throw new Error('Service not found');
+      }
+
+      // Validate images
+      const validatedImages = images.map(image => ({
+        url: image.url,
+        isDefault: image.isDefault || false,
+        uploadedAt: image.uploadedAt || new Date().toISOString(),
+        name: image.name || undefined,
+      }));
+
+      // Ensure only one default image
+      let hasDefault = false;
+      const processedImages = validatedImages.map(image => {
+        if (image.isDefault && !hasDefault) {
+          hasDefault = true;
+          return image;
+        } else if (image.isDefault && hasDefault) {
+          return { ...image, isDefault: false };
+        }
+        return image;
+      });
+
+      // If no default image is set, make the first one default
+      if (!hasDefault && processedImages.length > 0) {
+        processedImages[0].isDefault = true;
+      }
+
+      await this.updateService(serviceId, { images: processedImages }, companyId);
+
+      logger.info(`Service images updated successfully: ${serviceId}`);
+    } catch (error) {
+      logger.error('Error updating service images:', error);
+      throw error;
+    }
+  }
 }
 
 export const serviceService = new ServiceService();

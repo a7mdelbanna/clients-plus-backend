@@ -930,6 +930,260 @@ export class ServiceController {
   }
 
   /**
+   * Duplicate service
+   */
+  async duplicateService(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { name } = req.body;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Service ID is required',
+          error: 'MISSING_SERVICE_ID',
+        });
+        return;
+      }
+
+      const duplicatedService = await serviceService.duplicateService(id, req.user.companyId, name, req.user.userId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Service duplicated successfully',
+        data: {
+          service: duplicatedService,
+        },
+      });
+    } catch (error) {
+      logger.error('Duplicate service error:', error);
+      
+      let statusCode = 500;
+      let errorCode = 'SERVICE_DUPLICATION_FAILED';
+      let message = 'Failed to duplicate service';
+
+      if (error instanceof Error && error.message === 'Service not found') {
+        statusCode = 404;
+        errorCode = 'SERVICE_NOT_FOUND';
+        message = 'Service not found';
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message,
+        error: errorCode,
+      });
+    }
+  }
+
+  /**
+   * Get service pricing matrix
+   */
+  async getServicePricing(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const branchId = req.query.branchId as string;
+      const categoryId = req.query.categoryId as string;
+      
+      const pricingMatrix = await serviceService.getServicePricingMatrix(req.user.companyId, branchId, categoryId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Service pricing matrix retrieved successfully',
+        data: pricingMatrix,
+      });
+    } catch (error) {
+      logger.error('Get service pricing error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve service pricing matrix',
+        error: 'SERVICE_PRICING_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Bulk import services
+   */
+  async bulkImportServices(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { services } = req.body;
+      
+      if (!services || !Array.isArray(services) || services.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Services array is required',
+          error: 'MISSING_SERVICES_ARRAY',
+        });
+        return;
+      }
+
+      const result = await serviceService.bulkImportServices(services, req.user.companyId, req.user.userId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Services imported successfully',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('Bulk import services error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to import services',
+        error: 'BULK_IMPORT_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Upload service images
+   */
+  async uploadServiceImages(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { images } = req.body;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Service ID is required',
+          error: 'MISSING_SERVICE_ID',
+        });
+        return;
+      }
+
+      if (!images || !Array.isArray(images)) {
+        res.status(400).json({
+          success: false,
+          message: 'Images array is required',
+          error: 'MISSING_IMAGES_ARRAY',
+        });
+        return;
+      }
+
+      await serviceService.updateServiceImages(id, req.user.companyId, images);
+      const updatedService = await serviceService.getService(id, req.user.companyId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Service images updated successfully',
+        data: {
+          service: updatedService,
+        },
+      });
+    } catch (error) {
+      logger.error('Upload service images error:', error);
+      
+      let statusCode = 500;
+      let errorCode = 'IMAGE_UPLOAD_FAILED';
+      let message = 'Failed to upload service images';
+
+      if (error instanceof Error && error.message === 'Service not found') {
+        statusCode = 404;
+        errorCode = 'SERVICE_NOT_FOUND';
+        message = 'Service not found';
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message,
+        error: errorCode,
+      });
+    }
+  }
+
+  /**
+   * Get service images
+   */
+  async getServiceImages(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Service ID is required',
+          error: 'MISSING_SERVICE_ID',
+        });
+        return;
+      }
+
+      const service = await serviceService.getService(id, req.user.companyId);
+      
+      if (!service) {
+        res.status(404).json({
+          success: false,
+          message: 'Service not found',
+          error: 'SERVICE_NOT_FOUND',
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Service images retrieved successfully',
+        data: {
+          images: service.images || [],
+        },
+      });
+    } catch (error) {
+      logger.error('Get service images error:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve service images',
+        error: 'SERVICE_IMAGES_FAILED',
+      });
+    }
+  }
+
+  /**
    * Health check for service service
    */
   async healthCheck(req: Request, res: Response): Promise<void> {

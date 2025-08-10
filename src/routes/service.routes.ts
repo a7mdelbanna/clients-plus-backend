@@ -152,6 +152,53 @@ const reorderValidation = [
     .withMessage('Each service ID must be a valid string'),
 ];
 
+const duplicateValidation = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Service name must be between 1 and 255 characters'),
+];
+
+const bulkImportValidation = [
+  body('services')
+    .isArray({ min: 1 })
+    .withMessage('Services array is required'),
+  
+  body('services.*.name')
+    .notEmpty()
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Each service name is required and must be between 1 and 255 characters'),
+  
+  body('services.*.startingPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Each service starting price must be a positive number'),
+  
+  body('services.*.duration')
+    .isObject()
+    .withMessage('Each service duration must be an object'),
+  
+  body('services.*.onlineBooking')
+    .isObject()
+    .withMessage('Each service online booking settings must be an object'),
+];
+
+const imageUploadValidation = [
+  body('images')
+    .isArray({ min: 1 })
+    .withMessage('Images array is required'),
+  
+  body('images.*.url')
+    .isURL()
+    .withMessage('Each image must have a valid URL'),
+  
+  body('images.*.isDefault')
+    .optional()
+    .isBoolean()
+    .withMessage('isDefault must be a boolean'),
+];
+
 // Service CRUD routes
 router.post('/', serviceValidation, serviceController.createService);
 router.get('/', serviceController.getServices);
@@ -159,6 +206,8 @@ router.get('/all', serviceController.getAllServices);
 router.get('/search', serviceController.searchServices);
 router.get('/online-booking', serviceController.getOnlineBookableServices);
 router.post('/reorder', reorderValidation, serviceController.reorderServices);
+router.get('/pricing', serviceController.getServicePricing);
+router.post('/bulk-import', bulkImportValidation, serviceController.bulkImportServices);
 
 router.get('/:id', 
   param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
@@ -174,6 +223,24 @@ router.put('/:id',
 router.delete('/:id', 
   param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
   serviceController.deleteService
+);
+
+router.post('/:id/duplicate', 
+  param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
+  duplicateValidation,
+  serviceController.duplicateService
+);
+
+// Service images management
+router.get('/:id/images', 
+  param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
+  serviceController.getServiceImages
+);
+
+router.post('/:id/images', 
+  param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
+  imageUploadValidation,
+  serviceController.uploadServiceImages
 );
 
 // Service staff management routes

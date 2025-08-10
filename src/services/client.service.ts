@@ -1207,6 +1207,503 @@ export class ClientService {
 
     return this.getClients(companyId, combinedFilter, pagination);
   }
+
+  /**
+   * Get client visits history
+   */
+  async getClientVisits(
+    clientId: string, 
+    companyId: string, 
+    pagination?: PaginationOptions
+  ): Promise<PaginatedResult<any>> {
+    try {
+      const page = pagination?.page || 1;
+      const limit = Math.min(pagination?.limit || 10, 100);
+      const skip = (page - 1) * limit;
+
+      // Get appointments as visits
+      const [appointments, total] = await Promise.all([
+        prisma.appointment.findMany({
+          where: {
+            clientId,
+            companyId,
+          },
+          include: {
+            staff: {
+              select: {
+                name: true,
+                firstName: true,
+                lastName: true,
+              }
+            },
+            branch: {
+              select: {
+                name: true,
+              }
+            }
+          },
+          orderBy: {
+            date: 'desc',
+          },
+          skip,
+          take: limit,
+        }),
+        prisma.appointment.count({
+          where: {
+            clientId,
+            companyId,
+          },
+        }),
+      ]);
+
+      const visits = appointments.map(appointment => ({
+        id: appointment.id,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        status: appointment.status,
+        services: appointment.services,
+        staff: appointment.staff?.name || appointment.staff?.firstName ? 
+          `${appointment.staff.firstName || ''} ${appointment.staff.lastName || ''}`.trim() : 
+          appointment.staffName,
+        branch: appointment.branch?.name,
+        totalPrice: appointment.totalPrice,
+        notes: appointment.notes,
+        createdAt: appointment.createdAt,
+      }));
+
+      const pages = Math.ceil(total / limit);
+      const hasNext = page < pages;
+      const hasPrev = page > 1;
+
+      return {
+        data: visits,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages,
+          hasNext,
+          hasPrev,
+        },
+      };
+    } catch (error) {
+      logger.error('Error getting client visits:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get client balance information
+   */
+  async getClientBalance(clientId: string, companyId: string): Promise<any> {
+    try {
+      // Get client with current balance
+      const client = await this.getClient(clientId, companyId);
+      if (!client) {
+        throw new Error('Client not found');
+      }
+
+      // Get outstanding invoices
+      const outstandingInvoices = await prisma.invoice.findMany({
+        where: {
+          clientId,
+          companyId,
+          balanceAmount: { gt: 0 },
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          total: true,
+          paidAmount: true,
+          balanceAmount: true,
+          dueDate: true,
+          status: true,
+        },
+        orderBy: {
+          dueDate: 'asc',
+        },
+      });
+
+      // Get recent payments
+      const recentPayments = await prisma.payment.findMany({
+        where: {
+          clientId,
+          companyId,
+        },
+        select: {
+          id: true,
+          amount: true,
+          paymentDate: true,
+          paymentMethod: true,
+          reference: true,
+          invoice: {
+            select: {
+              invoiceNumber: true,
+            }
+          }
+        },
+        orderBy: {
+          paymentDate: 'desc',
+        },
+        take: 5,
+      });
+
+      // Calculate totals
+      const totalOutstanding = outstandingInvoices.reduce((sum, invoice) => sum + Number(invoice.balanceAmount), 0);
+      const totalOverdue = outstandingInvoices
+        .filter(invoice => new Date(invoice.dueDate) < new Date())
+        .reduce((sum, invoice) => sum + Number(invoice.balanceAmount), 0);
+
+      return {
+        currentBalance: client.currentBalance || 0,
+        totalOutstanding,
+        totalOverdue,
+        creditLimit: client.creditLimit || 0,
+        availableCredit: (client.creditLimit || 0) - totalOutstanding,
+        outstandingInvoices,
+        recentPayments,
+        summary: {
+          totalRevenue: client.totalRevenue || 0,
+          averageTicket: client.averageTicket || 0,
+          lifetimeValue: client.lifetimeValue || 0,
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting client balance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get client activities/history
+   */
+  async getClientActivities(
+    clientId: string, 
+    companyId: string, 
+    filter?: any, 
+    pagination?: PaginationOptions
+  ): Promise<PaginatedResult<any>> {
+    try {
+      const page = pagination?.page || 1;
+      const limit = Math.min(pagination?.limit || 20, 100);
+      const skip = (page - 1) * limit;
+
+      // Build activities from different sources
+      const activities: any[] = [];
+
+      // Get appointments
+      const appointmentQuery: any = {
+        clientId,
+        companyId,
+      };
+
+      if (filter?.from || filter?.to) {
+        appointmentQuery.createdAt = {};
+        if (filter.from) appointmentQuery.createdAt.gte = filter.from;
+        if (filter.to) appointmentQuery.createdAt.lte = filter.to;
+      }
+
+      const appointments = await prisma.appointment.findMany({
+        where: appointmentQuery,
+        include: {
+          staff: { select: { name: true, firstName: true, lastName: true } },
+          branch: { select: { name: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      });
+
+      appointments.forEach(apt => {
+        activities.push({
+          id: apt.id,
+          type: 'appointment',
+          action: `Appointment ${apt.status.toLowerCase()}`,
+          description: `${apt.status} appointment with ${apt.staff?.name || apt.staffName}`,
+          metadata: {
+            appointmentId: apt.id,
+            status: apt.status,
+            date: apt.date,
+            services: apt.services,
+            staff: apt.staff?.name || apt.staffName,
+            branch: apt.branch?.name,
+            totalPrice: apt.totalPrice,
+          },
+          createdAt: apt.createdAt,
+        });
+      });
+
+      // Get invoice activities
+      const invoices = await prisma.invoice.findMany({
+        where: {
+          clientId,
+          companyId,
+          ...(filter?.from || filter?.to ? {
+            createdAt: {
+              ...(filter.from && { gte: filter.from }),
+              ...(filter.to && { lte: filter.to }),
+            }
+          } : {})
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+
+      invoices.forEach(invoice => {
+        activities.push({
+          id: invoice.id,
+          type: 'invoice',
+          action: `Invoice ${invoice.status.toLowerCase()}`,
+          description: `Invoice #${invoice.invoiceNumber} for ${invoice.currency} ${invoice.total}`,
+          metadata: {
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            total: invoice.total,
+            status: invoice.status,
+            dueDate: invoice.dueDate,
+          },
+          createdAt: invoice.createdAt,
+        });
+      });
+
+      // Get payment activities
+      const payments = await prisma.payment.findMany({
+        where: {
+          clientId,
+          companyId,
+          ...(filter?.from || filter?.to ? {
+            createdAt: {
+              ...(filter.from && { gte: filter.from }),
+              ...(filter.to && { lte: filter.to }),
+            }
+          } : {})
+        },
+        include: {
+          invoice: { select: { invoiceNumber: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+
+      payments.forEach(payment => {
+        activities.push({
+          id: payment.id,
+          type: 'payment',
+          action: `Payment ${payment.status.toLowerCase()}`,
+          description: `Payment of ${payment.amount} via ${payment.paymentMethod}`,
+          metadata: {
+            paymentId: payment.id,
+            amount: payment.amount,
+            paymentMethod: payment.paymentMethod,
+            invoiceNumber: payment.invoice.invoiceNumber,
+            reference: payment.reference,
+          },
+          createdAt: payment.createdAt,
+        });
+      });
+
+      // Sort activities by creation date
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Apply type filter if provided
+      const filteredActivities = filter?.type ? 
+        activities.filter(activity => activity.type === filter.type) : 
+        activities;
+
+      const total = filteredActivities.length;
+      const pages = Math.ceil(total / limit);
+      const hasNext = page < pages;
+      const hasPrev = page > 1;
+
+      return {
+        data: filteredActivities.slice(0, limit),
+        pagination: {
+          page,
+          limit,
+          total,
+          pages,
+          hasNext,
+          hasPrev,
+        },
+      };
+    } catch (error) {
+      logger.error('Error getting client activities:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get client transactions
+   */
+  async getClientTransactions(
+    clientId: string, 
+    companyId: string, 
+    filter?: any, 
+    pagination?: PaginationOptions
+  ): Promise<PaginatedResult<any>> {
+    try {
+      const page = pagination?.page || 1;
+      const limit = Math.min(pagination?.limit || 20, 100);
+      const skip = (page - 1) * limit;
+
+      const whereClause: any = {
+        clientId,
+        companyId,
+      };
+
+      if (filter?.status) {
+        whereClause.status = filter.status;
+      }
+
+      if (filter?.from || filter?.to) {
+        whereClause.paymentDate = {};
+        if (filter.from) whereClause.paymentDate.gte = filter.from;
+        if (filter.to) whereClause.paymentDate.lte = filter.to;
+      }
+
+      const [transactions, total] = await Promise.all([
+        prisma.payment.findMany({
+          where: whereClause,
+          include: {
+            invoice: {
+              select: {
+                invoiceNumber: true,
+                title: true,
+              }
+            }
+          },
+          orderBy: {
+            paymentDate: 'desc',
+          },
+          skip,
+          take: limit,
+        }),
+        prisma.payment.count({ where: whereClause }),
+      ]);
+
+      const formattedTransactions = transactions.map(transaction => ({
+        id: transaction.id,
+        type: 'payment',
+        amount: transaction.amount,
+        paymentMethod: transaction.paymentMethod,
+        paymentDate: transaction.paymentDate,
+        status: transaction.status,
+        reference: transaction.reference,
+        invoice: {
+          number: transaction.invoice.invoiceNumber,
+          title: transaction.invoice.title,
+        },
+        notes: transaction.notes,
+        createdAt: transaction.createdAt,
+      }));
+
+      const pages = Math.ceil(total / limit);
+      const hasNext = page < pages;
+      const hasPrev = page > 1;
+
+      return {
+        data: formattedTransactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages,
+          hasNext,
+          hasPrev,
+        },
+      };
+    } catch (error) {
+      logger.error('Error getting client transactions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import multiple clients
+   */
+  async importClients(
+    clientsData: Partial<ExtendedClient>[], 
+    companyId: string, 
+    userId: string, 
+    options?: any
+  ): Promise<any> {
+    try {
+      const results = {
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+        errors: [] as any[],
+        imported: [] as string[],
+      };
+
+      for (let i = 0; i < clientsData.length; i++) {
+        const clientData = clientsData[i];
+        
+        try {
+          // Validate required fields
+          if (!clientData.firstName) {
+            throw new Error('First name is required');
+          }
+
+          // Add company context
+          const clientWithCompany = {
+            ...clientData,
+            companyId,
+          };
+
+          // Check for duplicates if not skipping them
+          if (!options.skipDuplicates) {
+            const duplicateCheck = await this.checkForDuplicates(clientWithCompany);
+            
+            if (duplicateCheck.hasDuplicates) {
+              if (duplicateCheck.suggestedAction === 'block') {
+                if (!options.updateExisting) {
+                  results.skipped++;
+                  results.errors.push({
+                    index: i,
+                    data: clientData,
+                    error: 'Duplicate client found',
+                    duplicates: duplicateCheck.matches
+                  });
+                  continue;
+                }
+                // Update existing client
+                const existingClient = duplicateCheck.matches[0]?.client;
+                if (existingClient?.id) {
+                  await this.updateClient(existingClient.id, clientData, companyId);
+                  results.successful++;
+                  results.imported.push(existingClient.id);
+                  continue;
+                }
+              }
+            }
+          }
+
+          // Create new client
+          const clientId = await this.createClient(clientWithCompany, userId);
+          results.successful++;
+          results.imported.push(clientId);
+          
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            index: i,
+            data: clientData,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          logger.error(`Failed to import client at index ${i}:`, error);
+        }
+      }
+
+      logger.info(`Client import completed: ${results.successful} successful, ${results.failed} failed, ${results.skipped} skipped`);
+      return results;
+      
+    } catch (error) {
+      logger.error('Error importing clients:', error);
+      throw error;
+    }
+  }
 }
 
 export const clientService = new ClientService();

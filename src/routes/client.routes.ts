@@ -454,6 +454,59 @@ router.post('/bulk-update',
 
 /**
  * @swagger
+ * /clients/import:
+ *   post:
+ *     summary: Import multiple clients
+ *     tags: [Clients]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - clients
+ *             properties:
+ *               clients:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                     phone:
+ *                       type: string
+ *               options:
+ *                 type: object
+ *                 properties:
+ *                   skipDuplicates:
+ *                     type: boolean
+ *                     default: false
+ *                   updateExisting:
+ *                     type: boolean
+ *                     default: false
+ *                   validateData:
+ *                     type: boolean
+ *                     default: true
+ *     responses:
+ *       200:
+ *         description: Import completed
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/import', clientController.importClients.bind(clientController));
+
+/**
+ * @swagger
  * /clients/health:
  *   get:
  *     summary: Client service health check
@@ -731,6 +784,207 @@ router.post('/:id/update-stats',
     param('id').notEmpty().withMessage('Client ID is required'),
   ],
   clientController.updateClientStats.bind(clientController)
+);
+
+/**
+ * @swagger
+ * /clients/{id}/visits:
+ *   get:
+ *     summary: Get client visits history
+ *     tags: [Clients]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Client visits retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Client not found
+ */
+router.get('/:id/visits',
+  [
+    param('id').notEmpty().withMessage('Client ID is required'),
+  ],
+  clientController.getClientVisits.bind(clientController)
+);
+
+/**
+ * @swagger
+ * /clients/{id}/balance:
+ *   get:
+ *     summary: Get client balance information
+ *     tags: [Clients]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: Client balance retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Client not found
+ */
+router.get('/:id/balance',
+  [
+    param('id').notEmpty().withMessage('Client ID is required'),
+  ],
+  clientController.getClientBalance.bind(clientController)
+);
+
+/**
+ * @swagger
+ * /clients/{id}/activities:
+ *   get:
+ *     summary: Get client activities/history
+ *     tags: [Clients]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [appointment, invoice, payment]
+ *         description: Activity type filter
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date filter
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date filter
+ *     responses:
+ *       200:
+ *         description: Client activities retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Client not found
+ */
+router.get('/:id/activities',
+  [
+    param('id').notEmpty().withMessage('Client ID is required'),
+  ],
+  clientController.getClientActivities.bind(clientController)
+);
+
+/**
+ * @swagger
+ * /clients/{id}/transactions:
+ *   get:
+ *     summary: Get client transactions
+ *     tags: [Clients]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, PARTIAL, PAID, OVERDUE, CANCELLED, REFUNDED, COMPLETED, FAILED]
+ *         description: Transaction status filter
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date filter
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date filter
+ *     responses:
+ *       200:
+ *         description: Client transactions retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Client not found
+ */
+router.get('/:id/transactions',
+  [
+    param('id').notEmpty().withMessage('Client ID is required'),
+  ],
+  clientController.getClientTransactions.bind(clientController)
 );
 
 export default router;

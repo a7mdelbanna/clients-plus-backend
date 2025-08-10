@@ -14,8 +14,8 @@ export interface StaffWithRelations extends Staff {
     service: {
       id: string;
       name: string;
-      price: number;
-      duration: number;
+      startingPrice?: any; // Decimal from database
+      duration: any; // JSON field from schema
     };
   })[];
   schedules: StaffSchedule[];
@@ -154,6 +154,7 @@ class StaffService {
               select: {
                 id: true,
                 name: true,
+                startingPrice: true,
                 duration: true,
               },
             },
@@ -231,7 +232,7 @@ class StaffService {
               select: {
                 id: true,
                 name: true,
-                // price: true, // Removed as it may not exist in service model
+                startingPrice: true,
                 duration: true,
               },
             },
@@ -271,12 +272,12 @@ class StaffService {
       const searchLower = filters.searchTerm.toLowerCase();
       staff = staff.filter(s => 
         s.name.toLowerCase().includes(searchLower) ||
-        s.nameAr?.toLowerCase().includes(searchLower) ||
-        s.email?.toLowerCase().includes(searchLower) ||
-        s.phone?.includes(filters.searchTerm) ||
-        s.mobile?.includes(filters.searchTerm) ||
-        s.specialization?.toLowerCase().includes(searchLower) ||
-        s.title?.toLowerCase().includes(searchLower)
+        (s.nameAr && s.nameAr.toLowerCase().includes(searchLower)) ||
+        (s.email && s.email.toLowerCase().includes(searchLower)) ||
+        (s.phone && s.phone.includes(filters.searchTerm!)) ||
+        (s.mobile && s.mobile.includes(filters.searchTerm!)) ||
+        (s.specialization && s.specialization.toLowerCase().includes(searchLower)) ||
+        (s.title && s.title.toLowerCase().includes(searchLower))
       );
     }
 
@@ -307,7 +308,7 @@ class StaffService {
               select: {
                 id: true,
                 name: true,
-                // price: true, // Removed as it may not exist in service model
+                startingPrice: true,
                 duration: true,
               },
             },
@@ -680,7 +681,7 @@ class StaffService {
     const appointments = await prisma.appointment.findMany({
       where: {
         staffId,
-        startTime: {
+        date: {
           gte: startOfDay,
           lte: endOfDay,
         },
@@ -688,7 +689,7 @@ class StaffService {
           notIn: ['CANCELLED', 'NO_SHOW'],
         },
       },
-      orderBy: { startTime: 'asc' },
+      orderBy: { date: 'asc' },
     });
 
     // Get time off records
@@ -722,11 +723,20 @@ class StaffService {
       slotEnd.setMinutes(slotEnd.getMinutes() + duration);
 
       // Check if slot conflicts with existing appointments
-      const hasConflict = appointments.some(apt => 
-        (slotStart >= apt.startTime && slotStart < apt.endTime) ||
-        (slotEnd > apt.startTime && slotEnd <= apt.endTime) ||
-        (slotStart <= apt.startTime && slotEnd >= apt.endTime)
-      );
+      const hasConflict = appointments.some(apt => {
+        const [aptStartHour, aptStartMinute] = apt.startTime.split(':').map(Number);
+        const [aptEndHour, aptEndMinute] = apt.endTime.split(':').map(Number);
+        
+        const aptStartTime = new Date(apt.date);
+        aptStartTime.setHours(aptStartHour, aptStartMinute, 0, 0);
+        
+        const aptEndTime = new Date(apt.date);
+        aptEndTime.setHours(aptEndHour, aptEndMinute, 0, 0);
+        
+        return (slotStart >= aptStartTime && slotStart < aptEndTime) ||
+               (slotEnd > aptStartTime && slotEnd <= aptEndTime) ||
+               (slotStart <= aptStartTime && slotEnd >= aptEndTime);
+      });
 
       slots.push({
         start: slotStart.toISOString(),
@@ -774,6 +784,387 @@ class StaffService {
     });
 
     return stats;
+  }
+
+  /**
+   * Get commission data for staff member
+   */
+  async getCommissionData(
+    staffId: string,
+    startDate?: Date,
+    endDate?: Date,
+    branchId?: string
+  ): Promise<{
+    totalCommission: number;
+    appointments: number;
+    revenue: number;
+    commissionRate: number;
+    breakdown: Array<{
+      date: string;
+      appointments: number;
+      revenue: number;
+      commission: number;
+    }>;
+  }> {
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      select: { commissionRate: true },
+    });
+
+    if (!staff) {
+      throw new Error('Staff member not found');
+    }
+
+    const commissionRate = Number(staff.commissionRate || 0);
+    
+    // Default to current month if no dates provided
+    const start = startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const end = endDate || new Date();
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        staffId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+        branchId: branchId || undefined,
+        status: {
+          in: ['COMPLETED', 'CONFIRMED'],
+        },
+      },
+      include: {
+        services: true,
+      },
+    });
+
+    const breakdown: Array<{
+      date: string;
+      appointments: number;
+      revenue: number;
+      commission: number;
+    }> = [];
+
+    const dailyData = new Map<string, { appointments: number; revenue: number }>();
+
+    appointments.forEach(apt => {
+      const dateKey = apt.date.toISOString().split('T')[0];
+      const revenue = Number(apt.totalPrice || 0);
+      
+      if (!dailyData.has(dateKey)) {
+        dailyData.set(dateKey, { appointments: 0, revenue: 0 });
+      }
+      
+      const day = dailyData.get(dateKey)!;
+      day.appointments += 1;
+      day.revenue += revenue;
+    });
+
+    dailyData.forEach((data, date) => {
+      breakdown.push({
+        date,
+        appointments: data.appointments,
+        revenue: data.revenue,
+        commission: data.revenue * commissionRate,
+      });
+    });
+
+    const totalRevenue = appointments.reduce((sum, apt) => sum + Number(apt.totalPrice || 0), 0);
+    const totalCommission = totalRevenue * commissionRate;
+
+    return {
+      totalCommission,
+      appointments: appointments.length,
+      revenue: totalRevenue,
+      commissionRate,
+      breakdown,
+    };
+  }
+
+  /**
+   * Get performance metrics for staff member
+   */
+  async getPerformanceMetrics(
+    staffId: string,
+    period: 'weekly' | 'monthly' | 'quarterly' = 'monthly',
+    branchId?: string
+  ): Promise<{
+    appointmentsCompleted: number;
+    appointmentsCancelled: number;
+    noShowRate: number;
+    averageRating: number;
+    revenue: number;
+    utilizationRate: number;
+    clientRetentionRate: number;
+  }> {
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (period) {
+      case 'weekly':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        break;
+      case 'quarterly':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        break;
+      default: // monthly
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        staffId,
+        date: {
+          gte: startDate,
+          lte: now,
+        },
+        branchId: branchId || undefined,
+      },
+    });
+
+    const completed = appointments.filter(apt => apt.status === 'COMPLETED').length;
+    const cancelled = appointments.filter(apt => apt.status === 'CANCELLED').length;
+    const noShow = appointments.filter(apt => apt.status === 'NO_SHOW').length;
+    const total = appointments.length;
+
+    const revenue = appointments
+      .filter(apt => apt.status === 'COMPLETED')
+      .reduce((sum, apt) => sum + Number(apt.totalPrice || 0), 0);
+
+    // Calculate utilization rate (appointments vs available hours)
+    // This is a simplified calculation - would need actual working hours for accurate calculation
+    const workingDaysInPeriod = period === 'weekly' ? 5 : period === 'monthly' ? 22 : 66;
+    const hoursPerDay = 8; // Assuming 8 hours per day
+    const totalAvailableHours = workingDaysInPeriod * hoursPerDay;
+    const totalAppointmentHours = appointments.reduce((sum, apt) => sum + (apt.totalDuration || 60), 0) / 60;
+    const utilizationRate = totalAvailableHours > 0 ? (totalAppointmentHours / totalAvailableHours) * 100 : 0;
+
+    // Client retention calculation (simplified)
+    const uniqueClients = new Set(appointments.map(apt => apt.clientId));
+    const returningClients = appointments.filter(apt => 
+      appointments.some(other => other.clientId === apt.clientId && other.date < apt.date)
+    );
+    const clientRetentionRate = uniqueClients.size > 0 ? 
+      (new Set(returningClients.map(apt => apt.clientId)).size / uniqueClients.size) * 100 : 0;
+
+    return {
+      appointmentsCompleted: completed,
+      appointmentsCancelled: cancelled,
+      noShowRate: total > 0 ? (noShow / total) * 100 : 0,
+      averageRating: 4.5, // Placeholder - would come from reviews
+      revenue,
+      utilizationRate,
+      clientRetentionRate,
+    };
+  }
+
+  /**
+   * Get revenue analytics for staff member
+   */
+  async getRevenueAnalytics(
+    staffId: string,
+    startDate?: Date,
+    endDate?: Date,
+    groupBy: 'daily' | 'weekly' | 'monthly' = 'daily',
+    branchId?: string
+  ): Promise<{
+    totalRevenue: number;
+    avgRevenuePerAppointment: number;
+    revenueGrowth: number;
+    topServices: Array<{
+      serviceName: string;
+      revenue: number;
+      appointments: number;
+    }>;
+    timeline: Array<{
+      period: string;
+      revenue: number;
+      appointments: number;
+    }>;
+  }> {
+    const start = startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const end = endDate || new Date();
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        staffId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+        branchId: branchId || undefined,
+        status: 'COMPLETED',
+      },
+    });
+
+    const totalRevenue = appointments.reduce((sum, apt) => sum + Number(apt.totalPrice || 0), 0);
+    const avgRevenuePerAppointment = appointments.length > 0 ? totalRevenue / appointments.length : 0;
+
+    // Group appointments by time period for timeline
+    const timeline: Array<{ period: string; revenue: number; appointments: number }> = [];
+    const timelineData = new Map<string, { revenue: number; appointments: number }>();
+
+    appointments.forEach(apt => {
+      let periodKey: string;
+      const date = apt.date;
+      
+      switch (groupBy) {
+        case 'weekly':
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay());
+          periodKey = weekStart.toISOString().split('T')[0];
+          break;
+        case 'monthly':
+          periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          break;
+        default: // daily
+          periodKey = date.toISOString().split('T')[0];
+      }
+      
+      if (!timelineData.has(periodKey)) {
+        timelineData.set(periodKey, { revenue: 0, appointments: 0 });
+      }
+      
+      const period = timelineData.get(periodKey)!;
+      period.revenue += Number(apt.totalPrice || 0);
+      period.appointments += 1;
+    });
+
+    timelineData.forEach((data, period) => {
+      timeline.push({
+        period,
+        revenue: data.revenue,
+        appointments: data.appointments,
+      });
+    });
+
+    // Sort timeline by period
+    timeline.sort((a, b) => a.period.localeCompare(b.period));
+
+    // Calculate revenue growth (current vs previous period)
+    let revenueGrowth = 0;
+    if (timeline.length >= 2) {
+      const current = timeline[timeline.length - 1].revenue;
+      const previous = timeline[timeline.length - 2].revenue;
+      revenueGrowth = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+    }
+
+    // Top services (simplified - would need service details)
+    const topServices = [
+      { serviceName: 'Service 1', revenue: totalRevenue * 0.4, appointments: Math.floor(appointments.length * 0.4) },
+      { serviceName: 'Service 2', revenue: totalRevenue * 0.3, appointments: Math.floor(appointments.length * 0.3) },
+      { serviceName: 'Service 3', revenue: totalRevenue * 0.3, appointments: Math.floor(appointments.length * 0.3) },
+    ];
+
+    return {
+      totalRevenue,
+      avgRevenuePerAppointment,
+      revenueGrowth,
+      topServices,
+      timeline,
+    };
+  }
+
+  /**
+   * Update commission rate for staff member
+   */
+  async updateCommissionRate(staffId: string, commissionRate: number): Promise<void> {
+    await prisma.staff.update({
+      where: { id: staffId },
+      data: { commissionRate },
+    });
+  }
+
+  /**
+   * Get staff positions for company
+   */
+  async getPositions(companyId: string): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    permissions?: any;
+    staffCount: number;
+  }>> {
+    // This would ideally come from a positions table
+    // For now, return based on existing position fields
+    const staffPositions = await prisma.staff.groupBy({
+      by: ['positionId'],
+      where: {
+        companyId,
+        isActive: true,
+        positionId: { not: null },
+      },
+      _count: true,
+    });
+
+    return staffPositions.map(position => ({
+      id: position.positionId || '',
+      name: position.positionId || 'Unknown Position',
+      description: `Position: ${position.positionId}`,
+      permissions: {},
+      staffCount: position._count,
+    }));
+  }
+
+  /**
+   * Create staff position
+   */
+  async createPosition(companyId: string, data: {
+    name: string;
+    description?: string;
+    permissions?: any;
+  }): Promise<{
+    id: string;
+    name: string;
+    description?: string;
+    permissions?: any;
+  }> {
+    // This would ideally create in a positions table
+    // For now, return mock data
+    const positionId = `pos_${Date.now()}`;
+    
+    return {
+      id: positionId,
+      name: data.name,
+      description: data.description,
+      permissions: data.permissions,
+    };
+  }
+
+  /**
+   * Update staff position
+   */
+  async updatePosition(positionId: string, data: {
+    name?: string;
+    description?: string;
+    permissions?: any;
+  }): Promise<{
+    id: string;
+    name: string;
+    description?: string;
+    permissions?: any;
+  }> {
+    // This would ideally update in a positions table
+    // For now, return mock data
+    return {
+      id: positionId,
+      name: data.name || 'Updated Position',
+      description: data.description,
+      permissions: data.permissions,
+    };
+  }
+
+  /**
+   * Delete staff position
+   */
+  async deletePosition(positionId: string): Promise<void> {
+    // This would ideally delete from a positions table
+    // For now, update staff members with this position to null
+    await prisma.staff.updateMany({
+      where: { positionId },
+      data: { positionId: null },
+    });
   }
 }
 

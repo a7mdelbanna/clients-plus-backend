@@ -567,6 +567,180 @@ class StaffController {
       return res.status(500).json(errorResponse('Failed to find next available slot'));
     }
   }
+
+  /**
+   * GET /api/v1/staff/:id/commission - Get staff commission data
+   */
+  async getCommissionData(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate, branchId } = req.query;
+
+      const commissionData = await staffService.getCommissionData(
+        id,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined,
+        branchId as string
+      );
+
+      return res.json(successResponse(commissionData, 'Commission data retrieved successfully'));
+    } catch (error) {
+      console.error('Error fetching commission data:', error);
+      return res.status(500).json(errorResponse('Failed to fetch commission data'));
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/:id/performance - Get staff performance metrics
+   */
+  async getPerformanceMetrics(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { period, branchId } = req.query;
+
+      const performanceData = await staffService.getPerformanceMetrics(
+        id,
+        period as string || 'monthly',
+        branchId as string
+      );
+
+      return res.json(successResponse(performanceData, 'Performance metrics retrieved successfully'));
+    } catch (error) {
+      console.error('Error fetching performance metrics:', error);
+      return res.status(500).json(errorResponse('Failed to fetch performance metrics'));
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/:id/revenue - Get staff revenue analytics
+   */
+  async getRevenueAnalytics(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate, groupBy, branchId } = req.query;
+
+      const revenueData = await staffService.getRevenueAnalytics(
+        id,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined,
+        groupBy as string || 'daily',
+        branchId as string
+      );
+
+      return res.json(successResponse(revenueData, 'Revenue analytics retrieved successfully'));
+    } catch (error) {
+      console.error('Error fetching revenue analytics:', error);
+      return res.status(500).json(errorResponse('Failed to fetch revenue analytics'));
+    }
+  }
+
+  /**
+   * POST /api/v1/staff/:id/commission-rate - Update commission rate
+   */
+  async updateCommissionRate(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { commissionRate } = req.body;
+
+      if (typeof commissionRate !== 'number' || commissionRate < 0 || commissionRate > 1) {
+        return res.status(400).json(errorResponse('Commission rate must be between 0 and 1'));
+      }
+
+      await staffService.updateCommissionRate(id, commissionRate);
+
+      return res.json(successResponse(null, 'Commission rate updated successfully'));
+    } catch (error) {
+      console.error('Error updating commission rate:', error);
+      return res.status(500).json(errorResponse('Failed to update commission rate'));
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/positions - Get staff positions/roles
+   */
+  async getPositions(req: Request, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json(errorResponse('Company ID is required'));
+      }
+
+      const positions = await staffService.getPositions(companyId);
+
+      return res.json(successResponse(positions, 'Staff positions retrieved successfully'));
+    } catch (error) {
+      console.error('Error fetching staff positions:', error);
+      return res.status(500).json(errorResponse('Failed to fetch staff positions'));
+    }
+  }
+
+  /**
+   * POST /api/v1/staff/positions - Create staff position/role
+   */
+  async createPosition(req: Request, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json(errorResponse('Company ID is required'));
+      }
+
+      const { name, description, permissions } = req.body;
+
+      if (!name) {
+        return res.status(400).json(errorResponse('Position name is required'));
+      }
+
+      const position = await staffService.createPosition(companyId, {
+        name,
+        description,
+        permissions
+      });
+
+      return res.status(201).json(successResponse(position, 'Staff position created successfully'));
+    } catch (error) {
+      console.error('Error creating staff position:', error);
+      return res.status(500).json(errorResponse('Failed to create staff position'));
+    }
+  }
+
+  /**
+   * PUT /api/v1/staff/positions/:positionId - Update staff position/role
+   */
+  async updatePosition(req: Request, res: Response) {
+    try {
+      const { positionId } = req.params;
+      const { name, description, permissions } = req.body;
+
+      const position = await staffService.updatePosition(positionId, {
+        name,
+        description,
+        permissions
+      });
+
+      return res.json(successResponse(position, 'Staff position updated successfully'));
+    } catch (error) {
+      console.error('Error updating staff position:', error);
+      return res.status(500).json(errorResponse('Failed to update staff position'));
+    }
+  }
+
+  /**
+   * DELETE /api/v1/staff/positions/:positionId - Delete staff position/role
+   */
+  async deletePosition(req: Request, res: Response) {
+    try {
+      const { positionId } = req.params;
+
+      await staffService.deletePosition(positionId);
+
+      return res.json(successResponse(null, 'Staff position deleted successfully'));
+    } catch (error) {
+      console.error('Error deleting staff position:', error);
+      return res.status(500).json(errorResponse('Failed to delete staff position'));
+    }
+  }
 }
 
 export const staffController = new StaffController();
