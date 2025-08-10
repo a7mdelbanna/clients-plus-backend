@@ -763,6 +763,215 @@ export class AvailabilityService {
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   }
+
+  /**
+   * Get multi-service availability (for appointments requiring multiple services)
+   */
+  async getMultiServiceAvailability(params: {
+    branchId: string;
+    date: Date;
+    serviceGroups: Array<{
+      services: string[];
+      requiredStaff?: string[];
+      duration: number;
+      mustBeSequential?: boolean;
+    }>;
+    preferredStaffId?: string;
+  }) {
+    try {
+      const { branchId, date, serviceGroups, preferredStaffId } = params;
+      const availableSlots: any[] = [];
+      
+      for (const group of serviceGroups) {
+        const groupSlots = await this.getAvailableSlots({
+          branchId,
+          date,
+          serviceIds: group.services,
+          duration: group.duration,
+          staffId: preferredStaffId || group.requiredStaff?.[0]
+        });
+        
+        if (group.mustBeSequential) {
+          // Find slots that can accommodate sequential services
+          const sequentialSlots = this.findSequentialSlots(groupSlots, group.duration);
+          availableSlots.push({
+            groupIndex: serviceGroups.indexOf(group),
+            type: 'sequential',
+            slots: sequentialSlots
+          });
+        } else {
+          availableSlots.push({
+            groupIndex: serviceGroups.indexOf(group),
+            type: 'parallel',
+            slots: groupSlots.filter(slot => slot.available)
+          });
+        }
+      }
+      
+      return {
+        date: format(date, 'yyyy-MM-dd'),
+        serviceGroups: availableSlots,
+        recommendations: this.generateMultiServiceRecommendations(availableSlots)
+      };
+    } catch (error) {
+      console.error('Error getting multi-service availability:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get resource-based availability
+   */
+  async getResourceAvailability(params: {
+    branchId: string;
+    date: Date;
+    resourceIds: string[];
+    duration: number;
+  }) {
+    try {
+      const { branchId, date, resourceIds, duration } = params;
+      const resourceSlots: any[] = [];
+      
+      for (const resourceId of resourceIds) {
+        // Get existing bookings for this resource
+        const existingBookings = await prisma.appointment.findMany({
+          where: {
+            branchId,
+            resourceId,
+            date: {
+              gte: startOfDay(date),
+              lte: endOfDay(date)
+            },
+            status: {
+              in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS']
+            }
+          },
+          orderBy: { startTime: 'asc' }
+        });
+        
+        // Generate available slots for this resource
+        const slots = this.generateResourceSlots(date, duration, existingBookings);
+        
+        resourceSlots.push({
+          resourceId,
+          availableSlots: slots,
+          utilization: this.calculateResourceUtilization(existingBookings, date)
+        });
+      }
+      
+      return {
+        date: format(date, 'yyyy-MM-dd'),
+        resources: resourceSlots,
+        summary: {
+          totalResources: resourceIds.length,
+          availableResources: resourceSlots.filter(r => r.availableSlots.length > 0).length,
+          averageUtilization: resourceSlots.length > 0 
+            ? resourceSlots.reduce((sum, r) => sum + r.utilization, 0) / resourceSlots.length 
+            : 0
+        }
+      };
+    } catch (error) {
+      console.error('Error getting resource availability:', error);
+      throw error;
+    }
+  }
+  
+  private findSequentialSlots(slots: TimeSlot[], totalDuration: number): TimeSlot[] {
+    const sequentialSlots: TimeSlot[] = [];
+    
+    for (let i = 0; i < slots.length; i++) {
+      const startSlot = slots[i];
+      if (!startSlot.available) continue;
+      
+      const startTime = this.parseTime(startSlot.startTime);
+      let currentTime = startTime;
+      let canFitSequential = true;
+      let slotsNeeded = Math.ceil(totalDuration / 30); // Assuming 30-min slots
+      
+      // Check if we can fit the entire duration sequentially
+      for (let j = 0; j < slotsNeeded && (i + j) < slots.length; j++) {
+        const slot = slots[i + j];
+        const slotTime = this.parseTime(slot.startTime);
+        
+        if (!slot.available || slotTime !== currentTime) {
+          canFitSequential = false;
+          break;
+        }
+        currentTime += 30;
+      }
+      
+      if (canFitSequential) {
+        sequentialSlots.push({
+          ...startSlot,
+          endTime: this.formatTime(startTime + totalDuration)
+        });
+      }
+    }
+    
+    return sequentialSlots;
+  }
+  
+  private generateMultiServiceRecommendations(availableSlots: any[]) {
+    const recommendations = [];
+    
+    // Find common available times across all service groups
+    if (availableSlots.length > 1) {
+      const firstGroupSlots = availableSlots[0].slots;
+      const commonTimes = firstGroupSlots.filter(slot1 =>
+        availableSlots.slice(1).every(group =>
+          group.slots.some((slot2: any) => 
+            slot1.startTime === slot2.startTime && slot2.available
+          )
+        )
+      );
+      
+      if (commonTimes.length > 0) {
+        recommendations.push({
+          type: 'SIMULTANEOUS',
+          message: `${commonTimes.length} slots available for all services at the same time`,
+          slots: commonTimes.slice(0, 3)
+        });
+      }
+    }
+    
+    return recommendations;
+  }
+  
+  private generateResourceSlots(date: Date, duration: number, existingBookings: any[]): any[] {
+    const slots = [];
+    const dayStart = 9 * 60; // 9 AM in minutes
+    const dayEnd = 18 * 60; // 6 PM in minutes
+    const slotInterval = 30; // 30-minute intervals
+    
+    let currentTime = dayStart;
+    while (currentTime + duration <= dayEnd) {
+      const hasConflict = existingBookings.some(booking => {
+        const bookingStart = this.parseTime(booking.startTime);
+        const bookingEnd = bookingStart + booking.totalDuration;
+        return currentTime < bookingEnd && currentTime + duration > bookingStart;
+      });
+      
+      slots.push({
+        startTime: this.formatTime(currentTime),
+        endTime: this.formatTime(currentTime + duration),
+        available: !hasConflict,
+        date: format(date, 'yyyy-MM-dd')
+      });
+      
+      currentTime += slotInterval;
+    }
+    
+    return slots;
+  }
+  
+  private calculateResourceUtilization(bookings: any[], date: Date): number {
+    const totalWorkingMinutes = 9 * 60; // 9 hours = 540 minutes
+    const bookedMinutes = bookings.reduce((total, booking) => {
+      return total + booking.totalDuration;
+    }, 0);
+    
+    return totalWorkingMinutes > 0 ? (bookedMinutes / totalWorkingMinutes) * 100 : 0;
+  }
 }
 
 export const availabilityService = new AvailabilityService();

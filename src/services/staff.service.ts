@@ -834,7 +834,12 @@ class StaffService {
         },
       },
       include: {
-        services: true,
+        client: {
+          select: {
+            firstName: true,
+            lastName: true
+          }
+        }
       },
     });
 

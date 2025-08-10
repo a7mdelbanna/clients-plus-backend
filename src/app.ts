@@ -35,6 +35,10 @@ import healthRoutes from './routes/health.routes';
 import { analyticsRoutes } from './routes/analytics.routes';
 // import { reportsRoutes } from './routes/reports.routes';
 import publicRoutes from './routes/public.routes';
+import inventoryRoutes from './routes/inventory.routes';
+import productRoutes from './routes/product.routes';
+import productCategoryRoutes from './routes/product-category.routes';
+import financialRoutes from './routes/financial.routes';
 
 class App {
   public app: Application;
@@ -139,6 +143,10 @@ class App {
     this.app.use(`${apiPrefix}/clients`, clientRoutes);
     this.app.use(`${apiPrefix}/projects`, projectRoutes);
     this.app.use(`${apiPrefix}/analytics`, analyticsRoutes);
+    this.app.use(`${apiPrefix}/inventory`, inventoryRoutes);
+    this.app.use(`${apiPrefix}/products`, productRoutes);
+    this.app.use(`${apiPrefix}/product-categories`, productCategoryRoutes);
+    this.app.use(`${apiPrefix}/finance`, financialRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);

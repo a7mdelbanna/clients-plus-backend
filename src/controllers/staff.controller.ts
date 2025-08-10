@@ -600,7 +600,7 @@ class StaffController {
 
       const performanceData = await staffService.getPerformanceMetrics(
         id,
-        period as string || 'monthly',
+        (period as 'weekly' | 'monthly' | 'quarterly') || 'monthly',
         branchId as string
       );
 
@@ -623,7 +623,7 @@ class StaffController {
         id,
         startDate ? new Date(startDate as string) : undefined,
         endDate ? new Date(endDate as string) : undefined,
-        groupBy as string || 'daily',
+        (groupBy as 'weekly' | 'monthly' | 'daily') || 'daily',
         branchId as string
       );
 

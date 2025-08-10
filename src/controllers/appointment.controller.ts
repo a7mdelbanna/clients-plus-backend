@@ -612,6 +612,263 @@ export class AppointmentController {
       return errorResponse(res, 'Failed to get bulk availability');
     }
   }
+  
+  // Advanced Appointment Management Endpoints
+  
+  /**
+   * Get client appointment history with analytics
+   */
+  async getClientAppointmentHistory(req: Request, res: Response) {
+    try {
+      const { clientId } = req.params;
+      const { limit, offset, includeAnalytics } = req.query;
+      const companyId = req.user?.companyId!;
+      
+      const history = await this.appointmentService.getClientHistory(
+        clientId,
+        companyId,
+        {
+          limit: limit ? parseInt(limit as string) : 50,
+          offset: offset ? parseInt(offset as string) : 0,
+          includeAnalytics: includeAnalytics === 'true'
+        }
+      );
+      
+      return successResponse(res, 'Client appointment history retrieved', history);
+      
+    } catch (error) {
+      console.error('Error in getClientAppointmentHistory:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to get client history');
+    }
+  }
+  
+  /**
+   * Get staff appointment schedule
+   */
+  async getStaffSchedule(req: Request, res: Response) {
+    try {
+      const { staffId } = req.params;
+      const { date, view } = req.query;
+      const companyId = req.user?.companyId!;
+      
+      if (!date) {
+        return errorResponse(res, 'Date is required', 400);
+      }
+      
+      const schedule = await this.appointmentService.getStaffSchedule(
+        staffId,
+        companyId,
+        new Date(date as string),
+        view as 'day' | 'week' | 'month' || 'day'
+      );
+      
+      return successResponse(res, 'Staff schedule retrieved', schedule);
+      
+    } catch (error) {
+      console.error('Error in getStaffSchedule:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to get staff schedule');
+    }
+  }
+  
+  /**
+   * Bulk appointment operations
+   */
+  async bulkAppointmentOperation(req: Request, res: Response) {
+    try {
+      const { operation, appointmentIds, data } = req.body;
+      const userId = req.user?.userId!;
+      
+      if (!operation || !appointmentIds || !Array.isArray(appointmentIds)) {
+        return errorResponse(res, 'Operation and appointment IDs are required', 400);
+      }
+      
+      const result = await this.appointmentService.bulkOperation(
+        operation,
+        appointmentIds,
+        data,
+        userId
+      );
+      
+      return successResponse(res, `Bulk ${operation} completed`, result);
+      
+    } catch (error) {
+      console.error('Error in bulkAppointmentOperation:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to perform bulk operation');
+    }
+  }
+  
+  /**
+   * Get appointment conflicts
+   */
+  async getAppointmentConflicts(req: Request, res: Response) {
+    try {
+      const validation = z.object({
+        branchId: z.string(),
+        date: z.string(),
+        startTime: z.string(),
+        duration: z.number().transform(val => Number(val)),
+        staffId: z.string().optional(),
+        resourceId: z.string().optional(),
+        excludeAppointmentId: z.string().optional()
+      }).safeParse(req.query);
+      
+      if (!validation.success) {
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
+      }
+      
+      const { branchId, date, startTime, duration, staffId, resourceId, excludeAppointmentId } = validation.data;
+      const companyId = req.user?.companyId!;
+      
+      const conflicts = await this.appointmentService.detectConflicts({
+        companyId,
+        branchId,
+        date: new Date(date),
+        startTime,
+        totalDuration: duration,
+        staffId,
+        resourceId,
+        clientId: 'temp', // Will be ignored for conflict detection
+        clientName: 'temp',
+        clientPhone: 'temp',
+        services: [],
+        totalPrice: 0
+      }, excludeAppointmentId);
+      
+      return successResponse(res, 'Conflicts checked', {
+        hasConflicts: conflicts.length > 0,
+        conflicts
+      });
+      
+    } catch (error) {
+      console.error('Error in getAppointmentConflicts:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to check conflicts');
+    }
+  }
+  
+  /**
+   * Get appointment analytics
+   */
+  async getAppointmentAnalytics(req: Request, res: Response) {
+    try {
+      const { startDate, endDate, branchId, staffId, groupBy } = req.query;
+      const companyId = req.user?.companyId!;
+      
+      if (!startDate || !endDate) {
+        return errorResponse(res, 'Start date and end date are required', 400);
+      }
+      
+      const analytics = await this.appointmentService.getAnalytics({
+        companyId,
+        branchId: branchId as string,
+        staffId: staffId as string,
+        startDate: new Date(startDate as string),
+        endDate: new Date(endDate as string),
+        groupBy: groupBy as 'day' | 'week' | 'month' || 'day'
+      });
+      
+      return successResponse(res, 'Analytics retrieved', analytics);
+      
+    } catch (error) {
+      console.error('Error in getAppointmentAnalytics:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to get analytics');
+    }
+  }
+  
+  /**
+   * Update appointment notes
+   */
+  async updateAppointmentNotes(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { notes, internalNotes } = req.body;
+      const userId = req.user?.userId!;
+      
+      const updatedAppointment = await this.appointmentService.updateAppointment(id, {
+        notes,
+        internalNotes
+      }, userId);
+      
+      return successResponse(res, 'Appointment notes updated', updatedAppointment);
+      
+    } catch (error) {
+      console.error('Error in updateAppointmentNotes:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to update notes');
+    }
+  }
+  
+  /**
+   * Add appointment attachments
+   */
+  async addAppointmentAttachment(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { attachmentUrl, attachmentType, description } = req.body;
+      const userId = req.user?.userId!;
+      
+      const result = await this.appointmentService.addAttachment(id, {
+        url: attachmentUrl,
+        type: attachmentType,
+        description,
+        uploadedBy: userId,
+        uploadedAt: new Date()
+      });
+      
+      return successResponse(res, 'Attachment added successfully', result);
+      
+    } catch (error) {
+      console.error('Error in addAppointmentAttachment:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to add attachment');
+    }
+  }
+  
+  /**
+   * Get no-show statistics
+   */
+  async getNoShowStatistics(req: Request, res: Response) {
+    try {
+      const { startDate, endDate, branchId, clientId } = req.query;
+      const companyId = req.user?.companyId!;
+      
+      const stats = await this.appointmentService.getNoShowStatistics({
+        companyId,
+        branchId: branchId as string,
+        clientId: clientId as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
+      });
+      
+      return successResponse(res, 'No-show statistics retrieved', stats);
+      
+    } catch (error) {
+      console.error('Error in getNoShowStatistics:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to get no-show statistics');
+    }
+  }
+  
+  /**
+   * Find optimal reschedule time
+   */
+  async findOptimalRescheduleTime(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { preferredDates, preferredTimes } = req.body;
+      
+      const suggestions = await this.appointmentService.findOptimalRescheduleTime(
+        id,
+        {
+          preferredDates,
+          preferredTimes,
+          maxSuggestions: 10
+        }
+      );
+      
+      return successResponse(res, 'Optimal reschedule times found', suggestions);
+      
+    } catch (error) {
+      console.error('Error in findOptimalRescheduleTime:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to find optimal times');
+    }
+  }
 }
 
 export const appointmentController = new AppointmentController();

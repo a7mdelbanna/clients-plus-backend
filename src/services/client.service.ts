@@ -1647,6 +1647,17 @@ export class ClientService {
           }
 
           // Add company context
+          // Ensure required fields are present
+          if (!clientData.firstName) {
+            results.failed++;
+            results.errors.push({
+              index: i,
+              data: clientData,
+              error: 'First name is required',
+            });
+            continue;
+          }
+
           const clientWithCompany = {
             ...clientData,
             companyId,
@@ -1681,7 +1692,7 @@ export class ClientService {
           }
 
           // Create new client
-          const clientId = await this.createClient(clientWithCompany, userId);
+          const clientId = await this.createClient(clientWithCompany as Omit<ExtendedClient, 'id'>, userId);
           results.successful++;
           results.imported.push(clientId);
           

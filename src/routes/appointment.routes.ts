@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { appointmentController } from '../controllers/appointment.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import recurringRoutes from './recurring.routes';
 // import { tenantMiddleware } from '../middleware/tenant.middleware';
 // import { rateLimitMiddleware } from '../middleware/rate-limit.middleware';
 
@@ -28,13 +29,22 @@ router.get('/availability/slots', appointmentController.getAvailableSlots.bind(a
 router.post('/availability/check', appointmentController.checkSlotAvailability.bind(appointmentController));
 router.post('/availability/bulk', appointmentController.getBulkAvailability.bind(appointmentController));
 
-// Recurring Appointment Routes (Admin only)
-router.use('/recurring', authenticateToken); // , tenantMiddleware);
+// Advanced Appointment Management Routes
+router.get('/clients/:clientId/history', appointmentController.getClientAppointmentHistory.bind(appointmentController));
+router.get('/staff/:staffId/schedule', appointmentController.getStaffSchedule.bind(appointmentController));
+router.post('/bulk-operation', appointmentController.bulkAppointmentOperation.bind(appointmentController));
+router.get('/conflicts', appointmentController.getAppointmentConflicts.bind(appointmentController));
+router.get('/analytics', appointmentController.getAppointmentAnalytics.bind(appointmentController));
 
-// TODO: Implement recurring-specific routes
-// router.post('/recurring', recurringController.createRecurringSeries);
-// router.put('/recurring/:groupId', recurringController.updateRecurringSeries);
-// router.delete('/recurring/:groupId', recurringController.deleteRecurringSeries);
-// router.get('/recurring/:groupId', recurringController.getRecurringSeries);
+// Appointment Enhancement Routes
+router.put('/:id/notes', appointmentController.updateAppointmentNotes.bind(appointmentController));
+router.post('/:id/attachments', appointmentController.addAppointmentAttachment.bind(appointmentController));
+router.post('/:id/reschedule/suggestions', appointmentController.findOptimalRescheduleTime.bind(appointmentController));
+
+// Statistics and Reporting Routes
+router.get('/statistics/no-shows', appointmentController.getNoShowStatistics.bind(appointmentController));
+
+// Recurring Appointment Routes
+router.use('/recurring', recurringRoutes);
 
 export default router;

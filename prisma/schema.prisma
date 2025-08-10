@@ -69,6 +69,18 @@ model Company {
   products          Product[]
   productCategories ProductCategory[]
   notificationLogs  NotificationLog[]
+  
+  // Financial relations
+  financialAccounts    FinancialAccount[]
+  financialTransactions FinancialTransaction[]
+  accountTransfers     AccountTransfer[]
+  expenseCategories    ExpenseCategory[]
+  expenses             Expense[]
+  budgets              Budget[]
+  cashRegisterDays     CashRegisterDay[]
+  taxRates             TaxRate[]
+  financialReports     FinancialReport[]
+  financialSettings    FinancialSettings?
 
   @@index([subscriptionStatus])
   @@index([isActive])
@@ -185,6 +197,14 @@ model Branch {
   inventoryMovements InventoryMovement[]
   invoices           Invoice[]
   notificationLogs   NotificationLog[]
+  
+  // Financial relations
+  financialAccounts    FinancialAccount[]
+  financialTransactions FinancialTransaction[]
+  expenses             Expense[]
+  budgets              Budget[]
+  cashRegisterDays     CashRegisterDay[]
+  financialReports     FinancialReport[]
 
   @@index([companyId])
   @@index([type])
@@ -1461,4 +1481,718 @@ enum NotificationPriority {
   NORMAL
   HIGH
   CRITICAL
+}
+
+// ============================================================================
+// FINANCIAL MANAGEMENT SYSTEM
+// ============================================================================
+
+model FinancialAccount {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Branch relationship (optional for company-wide accounts)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // Account details
+  name          String // Account name
+  accountNumber String? // Account number or reference
+  accountType   FinancialAccountType
+  subType       String? // Detailed sub-categorization
+
+  // Balance tracking
+  balance         Decimal @default(0) @db.Decimal(15, 2)
+  initialBalance  Decimal @default(0) @db.Decimal(15, 2)
+  availableBalance Decimal @default(0) @db.Decimal(15, 2) // For credit accounts
+
+  // Currency and limits
+  currency     String  @default("EGP")
+  creditLimit  Decimal? @db.Decimal(15, 2)
+  minimumBalance Decimal? @db.Decimal(15, 2)
+
+  // Bank details (for bank accounts)
+  bankName     String?
+  bankBranch   String?
+  iban         String?
+  swiftCode    String?
+  routingNumber String?
+
+  // Account configuration
+  isDefault    Boolean @default(false) // Default account for this type
+  isActive     Boolean @default(true)
+  allowOverdraft Boolean @default(false)
+
+  // Reconciliation
+  lastReconciledDate DateTime?
+  lastReconciledBalance Decimal? @db.Decimal(15, 2)
+
+  // Metadata
+  description String?
+  tags        String[] @default([])
+  notes       String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  // Relations
+  transactions     FinancialTransaction[]
+  fromTransfers    AccountTransfer[] @relation("FromAccount")
+  toTransfers      AccountTransfer[] @relation("ToAccount")
+  cashRegisterDays CashRegisterDay[]
+  budgets          Budget[]
+
+  @@unique([companyId, accountNumber])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([accountType])
+  @@index([isActive])
+  @@index([currency])
+  @@map("financial_accounts")
+}
+
+model FinancialTransaction {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Account relationship
+  accountId String
+  account   FinancialAccount @relation(fields: [accountId], references: [id])
+
+  // Branch relationship
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // Transaction details
+  type        FinancialTransactionType
+  category    String? // Income/Expense category
+  subcategory String? // Detailed subcategory
+  
+  amount      Decimal @db.Decimal(15, 2)
+  description String
+  reference   String? // Invoice number, check number, etc.
+  
+  // Transaction metadata
+  transactionDate DateTime @default(now())
+  effectiveDate   DateTime? // When the transaction should be effective
+  
+  // Payment method and details
+  paymentMethod PaymentMethod?
+  checkNumber   String?
+  
+  // Related entities
+  invoiceId     String? // Link to invoice
+  appointmentId String? // Link to appointment
+  clientId      String? // Link to client
+  vendorId      String? // Link to vendor/supplier
+  expenseId     String? // Link to expense record
+  
+  // Status and approval
+  status       TransactionStatus @default(PENDING)
+  approvedBy   String? // User who approved
+  approvedAt   DateTime?
+  
+  // Reconciliation
+  isReconciled    Boolean @default(false)
+  reconciledAt    DateTime?
+  reconciledBy    String?
+  bankStatement   String? // Bank statement reference
+  
+  // Currency handling
+  currency         String @default("EGP")
+  exchangeRate     Decimal? @db.Decimal(10, 6)
+  originalAmount   Decimal? @db.Decimal(15, 2)
+  originalCurrency String?
+  
+  // Tax information
+  taxAmount     Decimal? @db.Decimal(15, 2)
+  taxRate       Decimal? @db.Decimal(5, 4)
+  taxCategory   String?
+  isVatApplicable Boolean @default(false)
+  
+  // Additional details
+  attachments   Json? // Array of attachment URLs
+  tags          String[] @default([])
+  notes         String?
+  internalNotes String?
+  
+  // Running balance (for performance)
+  runningBalance Decimal? @db.Decimal(15, 2)
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@index([companyId])
+  @@index([accountId])
+  @@index([branchId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([transactionDate])
+  @@index([isReconciled])
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([companyId, transactionDate])
+  @@index([accountId, transactionDate])
+  @@map("financial_transactions")
+}
+
+model AccountTransfer {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Account relationships
+  fromAccountId String
+  fromAccount   FinancialAccount @relation("FromAccount", fields: [fromAccountId], references: [id])
+  
+  toAccountId String
+  toAccount   FinancialAccount @relation("ToAccount", fields: [toAccountId], references: [id])
+
+  // Transfer details
+  amount      Decimal @db.Decimal(15, 2)
+  description String
+  reference   String?
+  
+  // Transfer fees
+  transferFee Decimal? @db.Decimal(15, 2)
+  feeAccount  String? // Account to debit transfer fee
+  
+  // Currency exchange
+  exchangeRate       Decimal? @db.Decimal(10, 6)
+  fromCurrency       String   @default("EGP")
+  toCurrency         String   @default("EGP")
+  fromCurrencyAmount Decimal? @db.Decimal(15, 2)
+  toCurrencyAmount   Decimal? @db.Decimal(15, 2)
+  
+  // Status and approval
+  status     TransferStatus @default(PENDING)
+  approvedBy String?
+  approvedAt DateTime?
+  
+  // Metadata
+  transferDate DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    String?
+  
+  @@index([companyId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([status])
+  @@index([transferDate])
+  @@map("account_transfers")
+}
+
+model ExpenseCategory {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Category details
+  name        String
+  description String?
+  code        String? // Category code for reporting
+  
+  // Hierarchy support
+  parentId String?
+  parent   ExpenseCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children ExpenseCategory[] @relation("CategoryHierarchy")
+  
+  // Budget and limits
+  budgetLimit  Decimal? @db.Decimal(15, 2)
+  alertLimit   Decimal? @db.Decimal(15, 2)
+  requiresApproval Boolean @default(false)
+  
+  // Tax settings
+  defaultTaxRate     Decimal? @db.Decimal(5, 4)
+  isDeductible       Boolean  @default(true)
+  deductiblePercent  Decimal? @db.Decimal(5, 2)
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  // Relations
+  expenses Expense[]
+  budgets  Budget[]
+  
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Branch relationship
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // Category
+  categoryId String?
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id])
+
+  // Expense details
+  title        String
+  description  String?
+  amount       Decimal @db.Decimal(15, 2)
+  currency     String  @default("EGP")
+  
+  // Tax details
+  taxAmount    Decimal? @db.Decimal(15, 2)
+  taxRate      Decimal? @db.Decimal(5, 4)
+  netAmount    Decimal? @db.Decimal(15, 2)
+  
+  // Vendor information
+  vendorName   String?
+  vendorId     String? // Reference to vendor if exists
+  
+  // Payment information
+  paymentMethod PaymentMethod?
+  accountId     String? // Account used for payment
+  checkNumber   String?
+  reference     String? // Invoice/receipt reference
+  
+  // Dates
+  expenseDate DateTime
+  paidDate    DateTime?
+  dueDate     DateTime?
+  
+  // Approval workflow
+  status          ExpenseStatus @default(DRAFT)
+  submittedBy     String? // Employee who submitted
+  submittedAt     DateTime?
+  approvedBy      String? // Manager who approved
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  
+  // Reimbursement (for employee expenses)
+  isReimbursable     Boolean @default(false)
+  reimbursementStatus ReimbursementStatus @default(NOT_APPLICABLE)
+  reimbursedAmount   Decimal? @db.Decimal(15, 2)
+  reimbursedDate     DateTime?
+  
+  // Recurring expenses
+  isRecurring      Boolean @default(false)
+  recurringPattern Json? // Recurrence configuration
+  parentExpenseId  String? // For recurring expenses
+  
+  // Receipt and documentation
+  hasReceipt    Boolean @default(false)
+  receiptUrl    String?
+  attachments   Json? // Array of attachment URLs
+  
+  // Additional fields
+  tags          String[] @default([])
+  notes         String?
+  internalNotes String?
+  
+  // Integration
+  transactionId String? // Linked financial transaction
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@index([companyId])
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([expenseDate])
+  @@index([submittedBy])
+  @@index([approvedBy])
+  @@index([isReimbursable])
+  @@index([companyId, expenseDate])
+  @@index([companyId, status])
+  @@map("expenses")
+}
+
+model Budget {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Branch relationship (optional for company-wide budgets)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // Budget scope
+  name        String
+  description String?
+  budgetType  BudgetType
+  
+  // Category or account
+  categoryId String?
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  
+  accountId String?
+  account   FinancialAccount? @relation(fields: [accountId], references: [id])
+  
+  // Budget amounts
+  budgetAmount  Decimal @db.Decimal(15, 2)
+  spentAmount   Decimal @default(0) @db.Decimal(15, 2)
+  remainingAmount Decimal @db.Decimal(15, 2) // Calculated field
+  
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+  periodType  BudgetPeriod // MONTHLY, QUARTERLY, YEARLY, CUSTOM
+  
+  // Alerts
+  alertThreshold Decimal? @db.Decimal(5, 2) // Percentage
+  alertSent      Boolean  @default(false)
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@index([companyId])
+  @@index([branchId])
+  @@index([budgetType])
+  @@index([periodStart, periodEnd])
+  @@index([isActive])
+  @@map("budgets")
+}
+
+model CashRegisterDay {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Branch and account
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  
+  accountId String
+  account   FinancialAccount @relation(fields: [accountId], references: [id])
+
+  // Date
+  date DateTime @db.Date
+
+  // Opening details
+  openingBalance Decimal @db.Decimal(15, 2)
+  openedBy       String?
+  openedAt       DateTime?
+  
+  // Sales and transactions
+  salesAmount     Decimal @default(0) @db.Decimal(15, 2)
+  cashSales       Decimal @default(0) @db.Decimal(15, 2)
+  cardSales       Decimal @default(0) @db.Decimal(15, 2)
+  otherSales      Decimal @default(0) @db.Decimal(15, 2)
+  
+  // Cash movements
+  cashIn          Decimal @default(0) @db.Decimal(15, 2)
+  cashOut         Decimal @default(0) @db.Decimal(15, 2)
+  cashInReason    String?
+  cashOutReason   String?
+  
+  // Expected closing
+  expectedClosing Decimal @db.Decimal(15, 2)
+  
+  // Actual closing
+  actualCash      Decimal? @db.Decimal(15, 2)
+  variance        Decimal? @db.Decimal(15, 2)
+  closingNotes    String?
+  
+  // Status
+  status    CashRegisterStatus @default(OPEN)
+  closedBy  String?
+  closedAt  DateTime?
+  
+  // Reconciliation
+  isReconciled    Boolean @default(false)
+  reconciledBy    String?
+  reconciledAt    DateTime?
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([branchId, accountId, date])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([date])
+  @@index([status])
+  @@map("cash_register_days")
+}
+
+model TaxRate {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Tax details
+  name        String
+  code        String? // Tax code
+  rate        Decimal @db.Decimal(5, 4)
+  type        TaxType
+  description String?
+  
+  // Applicability
+  isDefault   Boolean @default(false)
+  isActive    Boolean @default(true)
+  
+  // Date range
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([type])
+  @@index([isActive])
+  @@map("tax_rates")
+}
+
+model FinancialReport {
+  id String @id @default(cuid())
+
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Branch filter (optional)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // Report details
+  name       String
+  reportType FinancialReportType
+  
+  // Date range
+  startDate DateTime
+  endDate   DateTime
+  
+  // Generated data
+  data       Json? // Report data
+  summary    Json? // Summary metrics
+  
+  // Status
+  status       ReportStatus @default(DRAFT)
+  generatedAt  DateTime?
+  
+  // Configuration
+  parameters Json? // Report parameters
+  filters    Json? // Applied filters
+  
+  // Export
+  exportUrl    String?
+  exportFormat String? // PDF, EXCEL, CSV
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@index([companyId])
+  @@index([reportType])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@map("financial_reports")
+}
+
+// Update Company model to include financial relations
+model FinancialSettings {
+  id String @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId String @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Default accounts
+  defaultCashAccount     String?
+  defaultBankAccount     String?
+  defaultIncomeAccount   String?
+  defaultExpenseAccount  String?
+  
+  // Fiscal year
+  fiscalYearStart DateTime
+  fiscalYearEnd   DateTime
+  
+  // Currency settings
+  baseCurrency           String @default("EGP")
+  supportedCurrencies    String[] @default(["EGP"])
+  exchangeRateProvider   String?
+  
+  // Tax settings
+  defaultTaxRate         Decimal? @db.Decimal(5, 4)
+  taxIdNumber            String?
+  vatRegistrationNumber  String?
+  
+  // Approval workflows
+  requireExpenseApproval Boolean @default(true)
+  expenseApprovalLimit   Decimal? @db.Decimal(15, 2)
+  requireTransferApproval Boolean @default(false)
+  transferApprovalLimit  Decimal? @db.Decimal(15, 2)
+  
+  // Reconciliation
+  autoReconciliation     Boolean @default(false)
+  reconciliationTolerance Decimal? @db.Decimal(10, 2)
+  
+  // Integration settings
+  bankIntegration        Json? // Bank API settings
+  accountingIntegration  Json? // Third-party accounting integration
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("financial_settings")
+}
+
+// ============================================================================
+// FINANCIAL ENUMS
+// ============================================================================
+
+enum FinancialAccountType {
+  CASH
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
+  ACCOUNTS_RECEIVABLE
+  ACCOUNTS_PAYABLE
+  INVENTORY
+  FIXED_ASSET
+  OTHER_ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+  OTHER
+}
+
+enum FinancialTransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  DEPOSIT
+  WITHDRAWAL
+  PAYMENT
+  REFUND
+  ADJUSTMENT
+  FEE
+  INTEREST
+  DIVIDEND
+  TAX
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+  FAILED
+  RECONCILED
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum ReimbursementStatus {
+  NOT_APPLICABLE
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum BudgetType {
+  EXPENSE_CATEGORY
+  ACCOUNT
+  DEPARTMENT
+  PROJECT
+  OVERALL
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+  RECONCILED
+}
+
+enum TaxType {
+  VAT
+  SALES_TAX
+  INCOME_TAX
+  WITHHOLDING_TAX
+  OTHER
+}
+
+enum FinancialReportType {
+  PROFIT_LOSS
+  BALANCE_SHEET
+  CASH_FLOW
+  BUDGET_VARIANCE
+  EXPENSE_SUMMARY
+  INCOME_SUMMARY
+  ACCOUNT_STATEMENT
+  TAX_REPORT
+  RECONCILIATION
+  CUSTOM
 }

@@ -1,6 +1,7 @@
 import { PrismaClient, AppointmentStatus, AppointmentSource, ReminderType, PaymentStatus } from '@prisma/client';
 import { addMinutes, addDays, addWeeks, addMonths, format, parse, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 import { enhancedNotificationService, EnhancedNotificationData } from './enhanced-notification.service';
+import { availabilityService } from './availability.service';
 
 const prisma = new PrismaClient();
 
@@ -112,6 +113,7 @@ export interface AppointmentFilter {
 }
 
 export class AppointmentService {
+  private availabilityService = availabilityService;
   
   /**
    * Create a new appointment with comprehensive validation
@@ -1089,6 +1091,632 @@ export class AppointmentService {
     }
     
     return undefined;
+  }
+
+  /**
+   * Get client appointment history with analytics
+   */
+  async getClientHistory(
+    clientId: string, 
+    companyId: string, 
+    options: { limit?: number; offset?: number; includeAnalytics?: boolean } = {}
+  ) {
+    try {
+      const { limit = 50, offset = 0, includeAnalytics = false } = options;
+      
+      const appointments = await prisma.appointment.findMany({
+        where: {
+          clientId,
+          companyId
+        },
+        include: {
+          staff: true,
+          branch: true,
+          reminders: true
+        },
+        orderBy: [
+          { date: 'desc' },
+          { startTime: 'desc' }
+        ],
+        take: limit,
+        skip: offset
+      });
+
+      let analytics = null;
+      if (includeAnalytics) {
+        analytics = {
+          totalAppointments: appointments.length,
+          completedAppointments: appointments.filter(a => a.status === 'COMPLETED').length,
+          cancelledAppointments: appointments.filter(a => a.status === 'CANCELLED').length,
+          noShowCount: appointments.filter(a => a.status === 'NO_SHOW').length,
+          averageSpending: appointments.length > 0 
+            ? appointments.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0) / appointments.length 
+            : 0,
+          totalSpending: appointments.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0),
+          favoriteStaff: this.calculateFavoriteStaff(appointments),
+          appointmentFrequency: this.calculateAppointmentFrequency(appointments)
+        };
+      }
+
+      return {
+        appointments,
+        analytics,
+        pagination: {
+          total: await prisma.appointment.count({ where: { clientId, companyId } }),
+          limit,
+          offset
+        }
+      };
+    } catch (error) {
+      console.error('Error getting client history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get staff schedule for different time periods
+   */
+  async getStaffSchedule(
+    staffId: string,
+    companyId: string,
+    date: Date,
+    view: 'day' | 'week' | 'month' = 'day'
+  ) {
+    try {
+      let startDate = startOfDay(date);
+      let endDate = endOfDay(date);
+
+      if (view === 'week') {
+        startDate = startOfDay(addDays(date, -date.getDay()));
+        endDate = endOfDay(addDays(startDate, 6));
+      } else if (view === 'month') {
+        startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+        endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+      }
+
+      const appointments = await prisma.appointment.findMany({
+        where: {
+          staffId,
+          companyId,
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        include: {
+          client: true,
+          branch: true
+        },
+        orderBy: [
+          { date: 'asc' },
+          { startTime: 'asc' }
+        ]
+      });
+
+      // Get staff working schedule
+      const staff = await prisma.staff.findUnique({
+        where: { id: staffId },
+        include: {
+          schedules: {
+            where: {
+              startDate: { lte: endDate },
+              OR: [
+                { endDate: null },
+                { endDate: { gte: startDate } }
+              ]
+            }
+          }
+        }
+      });
+
+      return {
+        staff: staff ? { id: staff.id, name: staff.name } : null,
+        appointments,
+        workingSchedule: staff?.schedules || [],
+        period: {
+          startDate,
+          endDate,
+          view
+        },
+        summary: {
+          totalAppointments: appointments.length,
+          confirmedCount: appointments.filter(a => a.status === 'CONFIRMED').length,
+          pendingCount: appointments.filter(a => a.status === 'PENDING').length,
+          completedCount: appointments.filter(a => a.status === 'COMPLETED').length,
+          totalRevenue: appointments.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0)
+        }
+      };
+    } catch (error) {
+      console.error('Error getting staff schedule:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk operations on appointments
+   */
+  async bulkOperation(
+    operation: string,
+    appointmentIds: string[],
+    data: any,
+    userId: string
+  ) {
+    try {
+      const results = {
+        success: [] as string[],
+        failed: [] as { id: string; error: string }[]
+      };
+
+      for (const appointmentId of appointmentIds) {
+        try {
+          switch (operation) {
+            case 'cancel':
+              await this.cancelAppointment(appointmentId, userId, data.reason, 'bulk');
+              results.success.push(appointmentId);
+              break;
+            case 'complete':
+              await this.completeAppointment(appointmentId, userId);
+              results.success.push(appointmentId);
+              break;
+            case 'reschedule':
+              if (!data.newDate || !data.newStartTime) {
+                throw new Error('New date and start time required for reschedule');
+              }
+              await this.rescheduleAppointment(
+                appointmentId,
+                new Date(data.newDate),
+                data.newStartTime,
+                data.newStaffId,
+                userId
+              );
+              results.success.push(appointmentId);
+              break;
+            case 'update-status':
+              await this.updateAppointment(appointmentId, { status: data.status }, userId);
+              results.success.push(appointmentId);
+              break;
+            default:
+              throw new Error(`Unsupported operation: ${operation}`);
+          }
+        } catch (error) {
+          results.failed.push({
+            id: appointmentId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Error in bulk operation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get appointment analytics
+   */
+  async getAnalytics(params: {
+    companyId: string;
+    branchId?: string;
+    staffId?: string;
+    startDate: Date;
+    endDate: Date;
+    groupBy?: 'day' | 'week' | 'month';
+  }) {
+    try {
+      const where: any = {
+        companyId: params.companyId,
+        date: {
+          gte: params.startDate,
+          lte: params.endDate
+        }
+      };
+
+      if (params.branchId) where.branchId = params.branchId;
+      if (params.staffId) where.staffId = params.staffId;
+
+      const appointments = await prisma.appointment.findMany({
+        where,
+        include: {
+          client: true,
+          staff: true
+        }
+      });
+
+      const analytics = {
+        totalAppointments: appointments.length,
+        statusBreakdown: {
+          pending: appointments.filter(a => a.status === 'PENDING').length,
+          confirmed: appointments.filter(a => a.status === 'CONFIRMED').length,
+          completed: appointments.filter(a => a.status === 'COMPLETED').length,
+          cancelled: appointments.filter(a => a.status === 'CANCELLED').length,
+          noShow: appointments.filter(a => a.status === 'NO_SHOW').length
+        },
+        revenue: {
+          total: appointments.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0),
+          completed: appointments
+            .filter(a => a.status === 'COMPLETED')
+            .reduce((sum, a) => sum + a.totalPrice.toNumber(), 0)
+        },
+        averageDuration: appointments.length > 0 
+          ? appointments.reduce((sum, a) => sum + a.totalDuration, 0) / appointments.length 
+          : 0,
+        topServices: this.getTopServices(appointments),
+        topStaff: this.getTopStaff(appointments),
+        busyHours: this.getBusyHours(appointments),
+        clientAnalytics: {
+          newClients: appointments.filter(a => a.isNewClient).length,
+          returningClients: appointments.filter(a => !a.isNewClient).length,
+          uniqueClients: [...new Set(appointments.map(a => a.clientId))].length
+        },
+        trends: params.groupBy ? this.getTrends(appointments, params.groupBy) : null
+      };
+
+      return analytics;
+    } catch (error) {
+      console.error('Error getting analytics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add attachment to appointment
+   */
+  async addAttachment(appointmentId: string, attachment: {
+    url: string;
+    type: string;
+    description?: string;
+    uploadedBy: string;
+    uploadedAt: Date;
+  }) {
+    try {
+      const currentAppointment = await this.getAppointmentById(appointmentId);
+      
+      const attachments = (currentAppointment.changeHistory as any[]) || [];
+      const newAttachment = {
+        id: `attach_${Date.now()}`,
+        ...attachment
+      };
+      
+      attachments.push({
+        type: 'attachment_added',
+        attachment: newAttachment,
+        timestamp: new Date(),
+        by: attachment.uploadedBy
+      });
+
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          changeHistory: attachments
+        }
+      });
+
+      return newAttachment;
+    } catch (error) {
+      console.error('Error adding attachment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get no-show statistics
+   */
+  async getNoShowStatistics(params: {
+    companyId: string;
+    branchId?: string;
+    clientId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }) {
+    try {
+      const where: any = {
+        companyId: params.companyId,
+        status: AppointmentStatus.NO_SHOW
+      };
+
+      if (params.branchId) where.branchId = params.branchId;
+      if (params.clientId) where.clientId = params.clientId;
+      if (params.startDate || params.endDate) {
+        where.date = {};
+        if (params.startDate) where.date.gte = params.startDate;
+        if (params.endDate) where.date.lte = params.endDate;
+      }
+
+      const noShows = await prisma.appointment.findMany({
+        where,
+        include: {
+          client: true,
+          staff: true,
+          branch: true
+        }
+      });
+
+      // Get total appointments for comparison
+      const totalWhere = { ...where };
+      delete totalWhere.status;
+      const totalAppointments = await prisma.appointment.count({ where: totalWhere });
+
+      const stats = {
+        totalNoShows: noShows.length,
+        totalAppointments,
+        noShowRate: totalAppointments > 0 ? (noShows.length / totalAppointments) * 100 : 0,
+        clientBreakdown: this.getClientNoShowBreakdown(noShows),
+        timePatterns: this.getNoShowTimePatterns(noShows),
+        revenueImpact: noShows.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0),
+        staffBreakdown: this.getStaffNoShowBreakdown(noShows)
+      };
+
+      return stats;
+    } catch (error) {
+      console.error('Error getting no-show statistics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find optimal reschedule time
+   */
+  async findOptimalRescheduleTime(
+    appointmentId: string,
+    preferences: {
+      preferredDates?: string[];
+      preferredTimes?: string[];
+      maxSuggestions?: number;
+    }
+  ) {
+    try {
+      const appointment = await this.getAppointmentById(appointmentId);
+      const { preferredDates = [], preferredTimes = [], maxSuggestions = 10 } = preferences;
+
+      // Get available slots for the next 30 days
+      const suggestions = [];
+      const searchEndDate = addDays(new Date(), 30);
+      
+      let currentDate = new Date();
+      while (currentDate <= searchEndDate && suggestions.length < maxSuggestions) {
+        // Skip if not in preferred dates (if specified)
+        if (preferredDates.length > 0) {
+          const dateStr = format(currentDate, 'yyyy-MM-dd');
+          if (!preferredDates.includes(dateStr)) {
+            currentDate = addDays(currentDate, 1);
+            continue;
+          }
+        }
+
+        // Get available slots for this day
+        const availableSlots = await this.availabilityService.getAvailableSlots({
+          branchId: appointment.branchId,
+          date: currentDate,
+          serviceIds: (appointment.services as any[]).map(s => s.serviceId),
+          staffId: appointment.staffId || undefined,
+          duration: appointment.totalDuration
+        });
+
+        // Filter by preferred times if specified
+        let filteredSlots = availableSlots.filter(slot => slot.available);
+        if (preferredTimes.length > 0) {
+          filteredSlots = filteredSlots.filter(slot => 
+            preferredTimes.some(time => slot.startTime >= time)
+          );
+        }
+
+        // Add to suggestions with scoring
+        for (const slot of filteredSlots.slice(0, maxSuggestions - suggestions.length)) {
+          suggestions.push({
+            ...slot,
+            score: this.scoreRescheduleOption(slot, appointment, preferences)
+          });
+        }
+
+        currentDate = addDays(currentDate, 1);
+      }
+
+      // Sort by score and return
+      return suggestions
+        .sort((a, b) => (b as any).score - (a as any).score)
+        .slice(0, maxSuggestions);
+
+    } catch (error) {
+      console.error('Error finding optimal reschedule time:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Private helper methods for analytics
+   */
+  private calculateFavoriteStaff(appointments: any[]) {
+    const staffCounts = appointments.reduce((acc, apt) => {
+      if (apt.staffId) {
+        acc[apt.staffId] = (acc[apt.staffId] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topStaff = Object.entries(staffCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 1)[0];
+
+    return topStaff ? {
+      staffId: topStaff[0],
+      count: topStaff[1],
+      staffName: appointments.find(a => a.staffId === topStaff[0])?.staff?.name
+    } : null;
+  }
+
+  private calculateAppointmentFrequency(appointments: any[]) {
+    if (appointments.length < 2) return null;
+
+    const dates = appointments
+      .map(a => new Date(a.date))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const intervals = [];
+    for (let i = 1; i < dates.length; i++) {
+      const days = Math.abs(dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+      intervals.push(days);
+    }
+
+    const averageInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+    
+    return {
+      averageDaysBetween: Math.round(averageInterval),
+      totalAppointments: appointments.length,
+      firstAppointment: dates[0],
+      lastAppointment: dates[dates.length - 1]
+    };
+  }
+
+  private getTopServices(appointments: any[]) {
+    const serviceCounts = appointments.reduce((acc, apt) => {
+      if (apt.services) {
+        (apt.services as any[]).forEach(service => {
+          const key = service.serviceName || service.name;
+          acc[key] = (acc[key] || 0) + 1;
+        });
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(serviceCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([service, count]) => ({ service, count }));
+  }
+
+  private getTopStaff(appointments: any[]) {
+    const staffCounts = appointments.reduce((acc, apt) => {
+      if (apt.staff) {
+        acc[apt.staff.name] = (acc[apt.staff.name] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(staffCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([staff, count]) => ({ staff, count }));
+  }
+
+  private getBusyHours(appointments: any[]) {
+    const hourCounts = appointments.reduce((acc, apt) => {
+      const hour = parseInt(apt.startTime.split(':')[0]);
+      acc[hour] = (acc[hour] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+
+    return Object.entries(hourCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([hour, count]) => ({ hour: parseInt(hour), count }));
+  }
+
+  private getTrends(appointments: any[], groupBy: 'day' | 'week' | 'month') {
+    const grouped = appointments.reduce((acc, apt) => {
+      let key: string;
+      const date = new Date(apt.date);
+      
+      if (groupBy === 'day') {
+        key = format(date, 'yyyy-MM-dd');
+      } else if (groupBy === 'week') {
+        key = format(date, 'yyyy-[W]ww');
+      } else {
+        key = format(date, 'yyyy-MM');
+      }
+      
+      if (!acc[key]) {
+        acc[key] = { appointments: 0, revenue: 0 };
+      }
+      acc[key].appointments += 1;
+      acc[key].revenue += apt.totalPrice.toNumber();
+      
+      return acc;
+    }, {} as Record<string, { appointments: number; revenue: number }>);
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, data]) => ({ period, ...data }));
+  }
+
+  private getClientNoShowBreakdown(noShows: any[]) {
+    const clientCounts = noShows.reduce((acc, apt) => {
+      const key = apt.clientName;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(clientCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([client, count]) => ({ client, count }));
+  }
+
+  private getNoShowTimePatterns(noShows: any[]) {
+    const hourCounts = noShows.reduce((acc, apt) => {
+      const hour = parseInt(apt.startTime.split(':')[0]);
+      acc[hour] = (acc[hour] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+
+    const dayOfWeekCounts = noShows.reduce((acc, apt) => {
+      const dayOfWeek = new Date(apt.date).getDay();
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayName = dayNames[dayOfWeek];
+      acc[dayName] = (acc[dayName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      byHour: Object.entries(hourCounts)
+        .sort(([, a], [, b]) => b - a)
+        .map(([hour, count]) => ({ hour: parseInt(hour), count })),
+      byDayOfWeek: Object.entries(dayOfWeekCounts)
+        .map(([day, count]) => ({ day, count }))
+    };
+  }
+
+  private getStaffNoShowBreakdown(noShows: any[]) {
+    const staffCounts = noShows.reduce((acc, apt) => {
+      if (apt.staff) {
+        acc[apt.staff.name] = (acc[apt.staff.name] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(staffCounts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([staff, count]) => ({ staff, count }));
+  }
+
+  private scoreRescheduleOption(slot: any, originalAppointment: any, preferences: any): number {
+    let score = 100; // Base score
+
+    // Prefer same time of day
+    const originalHour = parseInt(originalAppointment.startTime.split(':')[0]);
+    const slotHour = parseInt(slot.startTime.split(':')[0]);
+    const hourDiff = Math.abs(originalHour - slotHour);
+    score -= hourDiff * 5;
+
+    // Prefer same staff if possible
+    if (slot.staffId === originalAppointment.staffId) {
+      score += 20;
+    }
+
+    // Prefer sooner dates
+    const daysFromNow = Math.abs(new Date(slot.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
+    score -= daysFromNow * 2;
+
+    // Prefer preferred times
+    if (preferences.preferredTimes?.length > 0) {
+      const isPreferred = preferences.preferredTimes.some((time: string) => 
+        slot.startTime >= time && slot.startTime <= addMinutes(parse(time, 'HH:mm', new Date()), 120)
+      );
+      if (isPreferred) score += 30;
+    }
+
+    return Math.max(0, score);
   }
 }
 
