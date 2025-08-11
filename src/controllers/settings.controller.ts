@@ -233,13 +233,13 @@ export class SettingsController {
         updatedSections: Object.keys(validatedData),
       });
 
-      const updatedSettings = await settingsService.updateSettings(companyId, validatedData);
+      const updatedSettings = await settingsService.updateSettings(companyId, validatedData as any);
 
       res.json(successResponse(updatedSettings, 'Settings updated successfully'));
     } catch (error) {
       logger.error('Error in updateSettings:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -278,13 +278,13 @@ export class SettingsController {
         updatedChannels: Object.keys(validatedData),
       });
 
-      const updatedSettings = await settingsService.updateNotificationSettings(companyId, validatedData);
+      const updatedSettings = await settingsService.updateNotificationSettings(companyId, validatedData as any);
 
       res.json(successResponse(updatedSettings, 'Notification settings updated successfully'));
     } catch (error) {
       logger.error('Error in updateNotificationSettings:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -326,7 +326,7 @@ export class SettingsController {
         updatedIntegrations: Object.keys(validatedData),
       });
 
-      const updatedSettings = await settingsService.updateIntegrationSettings(companyId, validatedData);
+      const updatedSettings = await settingsService.updateIntegrationSettings(companyId, validatedData as any);
 
       // Mask sensitive data in response
       const maskedSettings = this.maskSensitiveData(updatedSettings);
@@ -335,7 +335,7 @@ export class SettingsController {
     } catch (error) {
       logger.error('Error in updateIntegrationSettings:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -367,7 +367,7 @@ export class SettingsController {
     } catch (error) {
       logger.error('Error in testIntegration:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }

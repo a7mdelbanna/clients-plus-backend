@@ -4,6 +4,17 @@ import { verifyAccessToken, extractTokenFromHeader, JWTPayload } from '../utils/
 import { authService } from '../services/auth.service';
 import { logger } from '../config/logger';
 
+// Export AuthenticatedRequest type
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    companyId: string;
+    role: UserRole;
+    permissions?: string[];
+  };
+}
+
 // Extend Express Request interface to include user data
 declare global {
   namespace Express {

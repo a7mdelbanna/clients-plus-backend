@@ -91,15 +91,17 @@ export class WhatsAppController {
       // Log the message send attempt
       await prisma.notificationLog.create({
         data: {
+          jobId: `whatsapp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           companyId,
           type: 'WHATSAPP',
           recipient: validatedData.to,
-          subject: 'WhatsApp Message',
-          content: validatedData.message,
           status: result.success ? 'SENT' : 'FAILED',
           error: result.error || null,
-          externalId: result.messageId || null,
+          sentAt: result.success ? new Date() : null,
           metadata: {
+            subject: 'WhatsApp Message',
+            content: validatedData.message,
+            externalId: result.messageId || null,
             twilioSid: result.twilioSid,
             mediaUrl: validatedData.mediaUrl,
           },
@@ -130,7 +132,7 @@ export class WhatsAppController {
     } catch (error) {
       logger.error('Error in sendMessage:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -190,15 +192,17 @@ export class WhatsAppController {
       // Log the template message send attempt
       await prisma.notificationLog.create({
         data: {
+          jobId: `whatsapp-template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           companyId,
           type: 'WHATSAPP',
           recipient: validatedData.to,
-          subject: `WhatsApp ${validatedData.templateType} Template`,
-          content: `Template: ${validatedData.templateType}`,
           status: result.success ? 'SENT' : 'FAILED',
           error: result.error || null,
-          externalId: result.messageId || null,
+          sentAt: result.success ? new Date() : null,
           metadata: {
+            subject: `WhatsApp ${validatedData.templateType} Template`,
+            content: `Template: ${validatedData.templateType}`,
+            externalId: result.messageId || null,
             templateType: validatedData.templateType,
             templateParams: validatedData.templateParams,
             twilioSid: result.twilioSid,
@@ -233,7 +237,7 @@ export class WhatsAppController {
     } catch (error) {
       logger.error('Error in sendTemplate:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -272,19 +276,27 @@ export class WhatsAppController {
       // Log bulk send operation
       await prisma.notificationLog.create({
         data: {
+          jobId: `whatsapp-bulk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           companyId,
           type: 'WHATSAPP',
           recipient: `Bulk send to ${validatedData.recipients.length} recipients`,
-          subject: 'WhatsApp Bulk Send',
-          content: validatedData.messageTemplate,
           status: result.sent > 0 ? 'SENT' : 'FAILED',
           error: result.failed > 0 ? `${result.failed} messages failed` : null,
+          sentAt: result.sent > 0 ? new Date() : null,
           metadata: {
+            subject: 'WhatsApp Bulk Send',
+            content: validatedData.messageTemplate,
             totalRecipients: validatedData.recipients.length,
             sentCount: result.sent,
             failedCount: result.failed,
             recipients: validatedData.recipients,
-            results: result.results,
+            results: result.results.map(r => ({
+              success: r.success,
+              messageId: r.messageId,
+              status: r.status,
+              error: r.error,
+              twilioSid: r.twilioSid
+            })),
           },
         },
       });
@@ -306,7 +318,7 @@ export class WhatsAppController {
     } catch (error) {
       logger.error('Error in sendBulkMessages:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -400,13 +412,17 @@ export class WhatsAppController {
       if (webhookData.messageId) {
         await prisma.notificationLog.updateMany({
           where: {
-            externalId: webhookData.messageId,
             type: 'WHATSAPP',
+            metadata: {
+              path: ['externalId'],
+              equals: webhookData.messageId,
+            },
           },
           data: {
             status: webhookData.status === 'delivered' ? 'DELIVERED' : 
                    webhookData.status === 'failed' ? 'FAILED' : 'SENT',
-            updatedAt: new Date(),
+            sentAt: webhookData.status === 'delivered' || webhookData.status === 'sent' ? new Date() : undefined,
+            deliveredAt: webhookData.status === 'delivered' ? new Date() : undefined,
           },
         });
       }
@@ -445,18 +461,21 @@ export class WhatsAppController {
       const notificationLog = await prisma.notificationLog.findFirst({
         where: {
           companyId,
-          externalId: messageId,
           type: 'WHATSAPP',
+          metadata: {
+            path: ['externalId'],
+            equals: messageId,
+          },
         },
         select: {
           id: true,
-          externalId: true,
           status: true,
           error: true,
           recipient: true,
-          subject: true,
           createdAt: true,
           updatedAt: true,
+          sentAt: true,
+          deliveredAt: true,
           metadata: true,
         },
       });
@@ -467,12 +486,13 @@ export class WhatsAppController {
       }
 
       res.json(successResponse({
-        messageId: notificationLog.externalId,
+        messageId: notificationLog.metadata ? (notificationLog.metadata as any).externalId : null,
         status: notificationLog.status,
         recipient: notificationLog.recipient,
-        subject: notificationLog.subject,
+        subject: notificationLog.metadata ? (notificationLog.metadata as any).subject : null,
         error: notificationLog.error,
-        sentAt: notificationLog.createdAt,
+        sentAt: notificationLog.sentAt || notificationLog.createdAt,
+        deliveredAt: notificationLog.deliveredAt,
         lastUpdated: notificationLog.updatedAt,
         twilioSid: notificationLog.metadata ? (notificationLog.metadata as any).twilioSid : null,
       }, 'Message status retrieved successfully'));
@@ -545,14 +565,13 @@ export class WhatsAppController {
           where,
           select: {
             id: true,
-            externalId: true,
             recipient: true,
-            subject: true,
-            content: true,
             status: true,
             error: true,
             createdAt: true,
             updatedAt: true,
+            sentAt: true,
+            deliveredAt: true,
             metadata: true,
           },
           orderBy: { createdAt: 'desc' },
@@ -563,7 +582,12 @@ export class WhatsAppController {
       ]);
 
       res.json(successResponse({
-        messages,
+        messages: messages.map(msg => ({
+          ...msg,
+          subject: msg.metadata ? (msg.metadata as any).subject : null,
+          content: msg.metadata ? (msg.metadata as any).content : null,
+          externalId: msg.metadata ? (msg.metadata as any).externalId : null,
+        })),
         pagination: {
           total,
           limit: Number(limit),

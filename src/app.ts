@@ -45,7 +45,7 @@ import uploadRoutes from './routes/upload.routes';
 import whatsappRoutes from './routes/whatsapp.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import settingsRoutes from './routes/settings.routes';
-import resourcesRoutes from './routes/resources.routes';
+// import resourcesRoutes from './routes/resources.routes';
 
 class App {
   public app: Application;
@@ -165,7 +165,7 @@ class App {
     this.app.use(`${apiPrefix}/whatsapp`, whatsappRoutes);
     this.app.use(`${apiPrefix}/dashboard`, dashboardRoutes);
     this.app.use(`${apiPrefix}/settings`, settingsRoutes);
-    this.app.use(`${apiPrefix}/resources`, resourcesRoutes);
+    // this.app.use(`${apiPrefix}/resources`, resourcesRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);

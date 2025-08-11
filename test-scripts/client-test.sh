@@ -3,7 +3,7 @@
 # Client Management API Tests
 # Tests the client endpoints used by the frontend
 
-API_URL="http://localhost:4000/api/v1"
+API_URL="http://localhost:8888/api/v1"
 TOKEN=""
 
 echo "================================"

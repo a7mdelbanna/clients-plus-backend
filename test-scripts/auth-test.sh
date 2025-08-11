@@ -3,7 +3,7 @@
 # Authentication API Tests
 # Tests the authentication endpoints used by the frontend
 
-API_URL="http://localhost:4000/api/v1"
+API_URL="http://localhost:8888/api/v1"
 TEST_EMAIL="test_$(date +%s)@example.com"
 TEST_PASSWORD="Test123!@#"
 TOKEN=""

@@ -89,7 +89,7 @@ export class DashboardController {
     } catch (error) {
       logger.error('Error in getStats:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -123,7 +123,7 @@ export class DashboardController {
     } catch (error) {
       logger.error('Error in getRevenue:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -157,7 +157,7 @@ export class DashboardController {
     } catch (error) {
       logger.error('Error in getAppointments:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -190,7 +190,7 @@ export class DashboardController {
     } catch (error) {
       logger.error('Error in getClients:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -223,7 +223,7 @@ export class DashboardController {
     } catch (error) {
       logger.error('Error in getStaffPerformance:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -712,6 +712,11 @@ export class DashboardController {
     const staffWithPerformance = await prisma.staff.findMany({
       where: whereConditions,
       include: {
+        primaryBranch: {
+          select: {
+            name: true,
+          },
+        },
         appointments: {
           where: {
             date: { gte: startDate, lte: endDate },
@@ -741,7 +746,7 @@ export class DashboardController {
       return {
         staffId: staff.id,
         staffName: staff.name,
-        branch: staff.branch ? staff.branch.name : 'Unassigned',
+        branch: staff.primaryBranch ? staff.primaryBranch.name : 'Unassigned',
         metrics: {
           revenue: totalRevenue,
           appointments: totalAppointments,

@@ -98,7 +98,7 @@ export class ResourcesController {
     } catch (error) {
       logger.error('Error in getResources:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else {
         res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
       }
@@ -154,7 +154,7 @@ export class ResourcesController {
     } catch (error) {
       logger.error('Error in createResource:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json(errorResponse(error.message, 'BRANCH_NOT_FOUND'));
       } else {
@@ -188,7 +188,7 @@ export class ResourcesController {
     } catch (error) {
       logger.error('Error in updateResource:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
       } else {
@@ -270,7 +270,7 @@ export class ResourcesController {
     } catch (error) {
       logger.error('Error in checkAvailability:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
       } else {
@@ -329,7 +329,7 @@ export class ResourcesController {
     } catch (error) {
       logger.error('Error in getAvailability:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.issues));
       } else if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
       } else {

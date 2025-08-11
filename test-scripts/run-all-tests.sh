@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # Check if server is running
 echo -e "${BLUE}Checking if API server is running...${NC}"
-curl -s http://localhost:4000/health > /dev/null 2>&1
+curl -s http://localhost:8888/health > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   echo -e "${RED}✗ API server is not running on port 3001${NC}"
   echo "Please start the server with: npm run dev"
@@ -64,7 +64,7 @@ echo -e "\n${BLUE}Generating test summary...${NC}"
 cat > "$RESULTS_DIR/summary.md" << EOF
 # API Test Results Summary
 **Date:** $(date)
-**Server:** http://localhost:4000
+**Server:** http://localhost:8888
 
 ## Test Results
 
