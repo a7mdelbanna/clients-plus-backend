@@ -359,6 +359,24 @@ export class AppointmentController {
   }
   
   /**
+   * Confirm appointment (Admin)
+   */
+  async confirmAppointment(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.userId!;
+      
+      const appointment = await this.appointmentService.confirmAppointment(id, userId);
+      
+      return successResponse(res, 'Appointment confirmed successfully', appointment);
+      
+    } catch (error) {
+      console.error('Error in confirmAppointment:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to confirm appointment');
+    }
+  }
+  
+  /**
    * Mark no-show (Admin)
    */
   async markNoShow(req: Request, res: Response) {
@@ -400,6 +418,43 @@ export class AppointmentController {
     } catch (error) {
       console.error('Error in getAvailableSlots:', error);
       return errorResponse(res, 'Failed to get available slots');
+    }
+  }
+  
+  /**
+   * Get calendar view
+   */
+  async getCalendarView(req: Request, res: Response) {
+    try {
+      const validation = z.object({
+        startDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid start date'),
+        endDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid end date'),
+        branchId: z.string().optional(),
+        staffId: z.string().optional(),
+        view: z.enum(['day', 'week', 'month']).default('week')
+      }).safeParse(req.query);
+
+      if (!validation.success) {
+        return errorResponse(res, 'Validation error', 400, validation.error.issues);
+      }
+
+      const { startDate, endDate, branchId, staffId, view } = validation.data;
+      const companyId = req.user?.companyId!;
+
+      const calendarData = await this.appointmentService.getCalendarView({
+        companyId,
+        branchId,
+        staffId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        view
+      });
+
+      return successResponse(res, 'Calendar view retrieved successfully', calendarData);
+
+    } catch (error) {
+      console.error('Error in getCalendarView:', error);
+      return errorResponse(res, error instanceof Error ? error.message : 'Failed to get calendar view');
     }
   }
   

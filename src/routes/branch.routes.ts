@@ -354,4 +354,157 @@ router.get(
   branchController.getBranchCount
 );
 
+// New branch-specific settings endpoints (single branch operations)
+
+/**
+ * @route   GET /api/v1/branches/:branchId/settings
+ * @desc    Get branch settings
+ * @access  Private (Admin/Manager/User of company)
+ */
+router.get(
+  '/:branchId/settings',
+  authenticateToken,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    handleValidationErrors,
+  ],
+  branchController.getBranchSettings
+);
+
+/**
+ * @route   PUT /api/v1/branches/:branchId/settings
+ * @desc    Update branch settings
+ * @access  Private (Admin/Manager of company)
+ */
+router.put(
+  '/:branchId/settings',
+  authenticateToken,
+  requireAdmin,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    body('allowOnlineBooking')
+      .optional()
+      .isBoolean()
+      .withMessage('Allow online booking must be a boolean'),
+    body('autoConfirmAppointments')
+      .optional()
+      .isBoolean()
+      .withMessage('Auto confirm appointments must be a boolean'),
+    body('requireDepositForBooking')
+      .optional()
+      .isBoolean()
+      .withMessage('Require deposit for booking must be a boolean'),
+    body('depositAmount')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Deposit amount must be a positive number'),
+    body('cancellationHours')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('Cancellation hours must be a positive integer'),
+    handleValidationErrors,
+  ],
+  auditLog('UPDATE', 'BRANCH_SETTINGS'),
+  branchController.updateBranchSettings
+);
+
+/**
+ * @route   GET /api/v1/branches/:branchId/working-hours
+ * @desc    Get branch working hours
+ * @access  Private (Admin/Manager/User of company)
+ */
+router.get(
+  '/:branchId/working-hours',
+  authenticateToken,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    handleValidationErrors,
+  ],
+  branchController.getBranchWorkingHours
+);
+
+/**
+ * @route   PUT /api/v1/branches/:branchId/working-hours
+ * @desc    Update branch working hours
+ * @access  Private (Admin/Manager of company)
+ */
+router.put(
+  '/:branchId/working-hours',
+  authenticateToken,
+  requireAdmin,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    body('operatingHours')
+      .optional()
+      .isObject()
+      .withMessage('Operating hours must be an object'),
+    // Add specific day validation if needed
+    body('operatingHours.monday')
+      .optional()
+      .isObject()
+      .withMessage('Monday schedule must be an object'),
+    body('operatingHours.tuesday')
+      .optional()
+      .isObject()
+      .withMessage('Tuesday schedule must be an object'),
+    body('operatingHours.wednesday')
+      .optional()
+      .isObject()
+      .withMessage('Wednesday schedule must be an object'),
+    body('operatingHours.thursday')
+      .optional()
+      .isObject()
+      .withMessage('Thursday schedule must be an object'),
+    body('operatingHours.friday')
+      .optional()
+      .isObject()
+      .withMessage('Friday schedule must be an object'),
+    body('operatingHours.saturday')
+      .optional()
+      .isObject()
+      .withMessage('Saturday schedule must be an object'),
+    body('operatingHours.sunday')
+      .optional()
+      .isObject()
+      .withMessage('Sunday schedule must be an object'),
+    handleValidationErrors,
+  ],
+  auditLog('UPDATE', 'BRANCH_WORKING_HOURS'),
+  branchController.updateBranchWorkingHours
+);
+
+/**
+ * @route   POST /api/v1/branches/:branchId/activate
+ * @desc    Activate branch
+ * @access  Private (Admin of company)
+ */
+router.post(
+  '/:branchId/activate',
+  authenticateToken,
+  requireAdmin,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    handleValidationErrors,
+  ],
+  auditLog('UPDATE', 'BRANCH'),
+  branchController.activateBranch
+);
+
+/**
+ * @route   POST /api/v1/branches/:branchId/deactivate
+ * @desc    Deactivate branch
+ * @access  Private (Admin of company)
+ */
+router.post(
+  '/:branchId/deactivate',
+  authenticateToken,
+  requireAdmin,
+  [
+    param('branchId').isString().isLength({ min: 20, max: 40 }).withMessage('Invalid branch ID'),
+    handleValidationErrors,
+  ],
+  auditLog('UPDATE', 'BRANCH'),
+  branchController.deactivateBranch
+);
+
 export default router;

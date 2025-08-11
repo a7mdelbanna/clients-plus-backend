@@ -8,7 +8,10 @@ import { logger } from '../config/logger';
 // Create Redis client for rate limiting
 let redisClient: ReturnType<typeof createClient> | null = null;
 
-if (env.REDIS_URL) {
+// Temporarily disable Redis for rate limiting
+const REDIS_DISABLED = true;
+
+if (env.REDIS_URL && !REDIS_DISABLED) {
   redisClient = createClient({
     url: env.REDIS_URL,
   });

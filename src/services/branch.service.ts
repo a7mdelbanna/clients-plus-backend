@@ -639,6 +639,239 @@ export class BranchService {
       throw new ApiError(500, 'Failed to retrieve branches', 'FETCH_ERROR');
     }
   }
+
+  /**
+   * Get branch settings
+   */
+  async getBranchSettings(companyId: string, branchId: string): Promise<any> {
+    try {
+      const branch = await prisma.branch.findFirst({
+        where: {
+          id: branchId,
+          companyId,
+        },
+        select: {
+          id: true,
+          name: true,
+          settings: true,
+          operatingHours: true,
+          status: true,
+        },
+      });
+
+      if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      return {
+        id: branch.id,
+        name: branch.name,
+        settings: branch.settings || {},
+        operatingHours: branch.operatingHours || {},
+        status: branch.status,
+      };
+    } catch (error) {
+      logger.error('Error fetching branch settings:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to fetch branch settings', 'SETTINGS_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Update branch settings
+   */
+  async updateBranchSettings(companyId: string, branchId: string, settings: any): Promise<any> {
+    try {
+      const existingBranch = await this.getBranchById(companyId, branchId);
+      if (!existingBranch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      const updatedBranch = await prisma.branch.update({
+        where: {
+          id: branchId,
+        },
+        data: {
+          settings: settings,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          name: true,
+          settings: true,
+          status: true,
+        },
+      });
+
+      logger.info(`Branch settings updated: ${existingBranch.name} (${branchId})`);
+      return updatedBranch;
+    } catch (error) {
+      logger.error('Error updating branch settings:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to update branch settings', 'SETTINGS_UPDATE_ERROR');
+    }
+  }
+
+  /**
+   * Get branch working hours
+   */
+  async getBranchWorkingHours(companyId: string, branchId: string): Promise<any> {
+    try {
+      const branch = await prisma.branch.findFirst({
+        where: {
+          id: branchId,
+          companyId,
+        },
+        select: {
+          id: true,
+          name: true,
+          operatingHours: true,
+        },
+      });
+
+      if (!branch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      return {
+        id: branch.id,
+        name: branch.name,
+        operatingHours: branch.operatingHours || {},
+      };
+    } catch (error) {
+      logger.error('Error fetching branch working hours:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to fetch branch working hours', 'WORKING_HOURS_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Update branch working hours
+   */
+  async updateBranchWorkingHours(companyId: string, branchId: string, workingHours: any): Promise<any> {
+    try {
+      const existingBranch = await this.getBranchById(companyId, branchId);
+      if (!existingBranch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      const updatedBranch = await prisma.branch.update({
+        where: {
+          id: branchId,
+        },
+        data: {
+          operatingHours: workingHours,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          name: true,
+          operatingHours: true,
+        },
+      });
+
+      logger.info(`Branch working hours updated: ${existingBranch.name} (${branchId})`);
+      return updatedBranch;
+    } catch (error) {
+      logger.error('Error updating branch working hours:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to update branch working hours', 'WORKING_HOURS_UPDATE_ERROR');
+    }
+  }
+
+  /**
+   * Activate branch
+   */
+  async activateBranch(companyId: string, branchId: string): Promise<Branch> {
+    try {
+      const existingBranch = await this.getBranchById(companyId, branchId);
+      if (!existingBranch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      const updatedBranch = await prisma.branch.update({
+        where: {
+          id: branchId,
+        },
+        data: {
+          status: BranchStatus.ACTIVE,
+          isActive: true, // Update legacy field too
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info(`Branch activated: ${existingBranch.name} (${branchId})`);
+      return updatedBranch;
+    } catch (error) {
+      logger.error('Error activating branch:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to activate branch', 'ACTIVATION_ERROR');
+    }
+  }
+
+  /**
+   * Deactivate branch
+   */
+  async deactivateBranch(companyId: string, branchId: string): Promise<Branch> {
+    try {
+      const existingBranch = await this.getBranchById(companyId, branchId);
+      if (!existingBranch) {
+        throw new ApiError(404, 'Branch not found', 'BRANCH_NOT_FOUND');
+      }
+
+      // Check if this is the main branch and there are other branches
+      if (existingBranch.type === BranchType.MAIN) {
+        const otherBranches = await prisma.branch.count({
+          where: {
+            companyId,
+            id: { not: branchId },
+            status: BranchStatus.ACTIVE,
+          },
+        });
+
+        if (otherBranches > 0) {
+          // Set another branch as main before deactivating
+          const nextBranch = await prisma.branch.findFirst({
+            where: {
+              companyId,
+              id: { not: branchId },
+              status: BranchStatus.ACTIVE,
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          if (nextBranch) {
+            await prisma.branch.update({
+              where: { id: nextBranch.id },
+              data: {
+                type: BranchType.MAIN,
+                isMain: true,
+                updatedAt: new Date(),
+              },
+            });
+          }
+        }
+      }
+
+      const updatedBranch = await prisma.branch.update({
+        where: {
+          id: branchId,
+        },
+        data: {
+          status: BranchStatus.INACTIVE,
+          isActive: false, // Update legacy field too
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info(`Branch deactivated: ${existingBranch.name} (${branchId})`);
+      return updatedBranch;
+    } catch (error) {
+      logger.error('Error deactivating branch:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to deactivate branch', 'DEACTIVATION_ERROR');
+    }
+  }
 }
 
 export const branchService = new BranchService();

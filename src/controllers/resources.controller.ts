@@ -1,0 +1,401 @@
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { resourcesService, ResourceType, ResourceSettings, ResourceAvailability } from '../services/resources.service';
+import { successResponse, errorResponse } from '../utils/response';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { logger } from '../config/logger';
+
+// Validation schemas
+const resourceSettingsSchema = z.object({
+  requiresBooking: z.boolean(),
+  advanceBookingDays: z.number().min(1).max(365),
+  bufferTime: z.number().min(0).max(120),
+  maintenanceSchedule: z.object({
+    frequency: z.enum(['daily', 'weekly', 'monthly']),
+    duration: z.number().min(15).max(480),
+    time: z.string().regex(/^\d{2}:\d{2}$/),
+  }).optional(),
+  pricing: z.object({
+    hourlyRate: z.number().min(0),
+    currency: z.string().length(3),
+  }).optional(),
+});
+
+const resourceAvailabilitySchema = z.object({
+  schedule: z.record(z.object({
+    available: z.boolean(),
+    timeSlots: z.array(z.object({
+      startTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    })),
+  })),
+  exceptions: z.array(z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    available: z.boolean(),
+    reason: z.string().optional(),
+    timeSlots: z.array(z.object({
+      startTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    })).optional(),
+  })),
+});
+
+const createResourceSchema = z.object({
+  name: z.string().min(1, 'Resource name is required'),
+  description: z.string().optional(),
+  type: z.nativeEnum(ResourceType),
+  capacity: z.number().min(1, 'Capacity must be at least 1'),
+  branchId: z.string().min(1, 'Branch ID is required'),
+  settings: resourceSettingsSchema,
+  availability: resourceAvailabilitySchema,
+});
+
+const updateResourceSchema = createResourceSchema.partial();
+
+const resourceFiltersSchema = z.object({
+  branchId: z.string().optional(),
+  type: z.nativeEnum(ResourceType).optional(),
+  isActive: z.boolean().optional(),
+  limit: z.number().min(1).max(100).optional(),
+  offset: z.number().min(0).optional(),
+});
+
+const availabilityQuerySchema = z.object({
+  startDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid start date'),
+  endDate: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid end date'),
+  slotDuration: z.number().min(15).max(480).optional().default(60),
+});
+
+const checkAvailabilitySchema = z.object({
+  startTime: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid start time'),
+  endTime: z.string().refine(date => !isNaN(Date.parse(date)), 'Invalid end time'),
+  excludeAppointmentId: z.string().optional(),
+});
+
+export class ResourcesController {
+  /**
+   * Get all resources
+   * GET /api/v1/resources
+   */
+  async getResources(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const filters = resourceFiltersSchema.parse(req.query);
+      const { companyId } = req.user!;
+
+      logger.info(`Getting resources for company ${companyId}`, filters);
+
+      const result = await resourcesService.getResources(companyId, filters);
+
+      res.json(successResponse({
+        resources: result.resources,
+        pagination: {
+          total: result.total,
+          limit: filters.limit || 50,
+          offset: filters.offset || 0,
+          hasMore: result.total > (filters.offset || 0) + (filters.limit || 50),
+        },
+      }, 'Resources retrieved successfully'));
+    } catch (error) {
+      logger.error('Error in getResources:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Get a single resource
+   * GET /api/v1/resources/:id
+   */
+  async getResource(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      const resource = await resourcesService.getResource(companyId, id);
+
+      if (!resource) {
+        res.status(404).json(errorResponse('Resource not found', 'RESOURCE_NOT_FOUND'));
+        return;
+      }
+
+      res.json(successResponse(resource, 'Resource retrieved successfully'));
+    } catch (error) {
+      logger.error('Error in getResource:', error);
+      res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+    }
+  }
+
+  /**
+   * Create a new resource
+   * POST /api/v1/resources
+   */
+  async createResource(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const validatedData = createResourceSchema.parse(req.body);
+      const { companyId } = req.user!;
+
+      logger.info(`Creating resource for company ${companyId}`, {
+        name: validatedData.name,
+        type: validatedData.type,
+        branchId: validatedData.branchId,
+      });
+
+      const resource = await resourcesService.createResource(companyId, validatedData);
+
+      res.status(201).json(successResponse(resource, 'Resource created successfully'));
+    } catch (error) {
+      logger.error('Error in createResource:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json(errorResponse(error.message, 'BRANCH_NOT_FOUND'));
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Update a resource
+   * PUT /api/v1/resources/:id
+   */
+  async updateResource(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const validatedData = updateResourceSchema.parse(req.body);
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      logger.info(`Updating resource ${id} for company ${companyId}`, {
+        updatedFields: Object.keys(validatedData),
+      });
+
+      const resource = await resourcesService.updateResource(companyId, id, validatedData);
+
+      res.json(successResponse(resource, 'Resource updated successfully'));
+    } catch (error) {
+      logger.error('Error in updateResource:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Delete a resource
+   * DELETE /api/v1/resources/:id
+   */
+  async deleteResource(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      logger.info(`Deleting resource ${id} for company ${companyId}`);
+
+      await resourcesService.deleteResource(companyId, id);
+
+      res.json(successResponse(
+        { resourceId: id, deletedAt: new Date().toISOString() },
+        'Resource deleted successfully'
+      ));
+    } catch (error) {
+      logger.error('Error in deleteResource:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
+        } else if (error.message.includes('active bookings')) {
+          res.status(400).json(errorResponse(error.message, 'RESOURCE_HAS_BOOKINGS'));
+        } else {
+          res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+        }
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Check resource availability for a specific time slot
+   * POST /api/v1/resources/:id/check-availability
+   */
+  async checkAvailability(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const validatedData = checkAvailabilitySchema.parse(req.body);
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      const startTime = new Date(validatedData.startTime);
+      const endTime = new Date(validatedData.endTime);
+
+      if (startTime >= endTime) {
+        res.status(400).json(errorResponse('End time must be after start time', 'INVALID_TIME_RANGE'));
+        return;
+      }
+
+      const availability = await resourcesService.checkAvailability(
+        companyId,
+        id,
+        startTime,
+        endTime,
+        validatedData.excludeAppointmentId
+      );
+
+      res.json(successResponse(availability, 'Resource availability checked successfully'));
+    } catch (error) {
+      logger.error('Error in checkAvailability:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Get resource availability for a date range
+   * GET /api/v1/resources/:id/availability
+   */
+  async getAvailability(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const validatedData = availabilityQuerySchema.parse(req.query);
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      const startDate = new Date(validatedData.startDate);
+      const endDate = new Date(validatedData.endDate);
+
+      if (startDate >= endDate) {
+        res.status(400).json(errorResponse('End date must be after start date', 'INVALID_DATE_RANGE'));
+        return;
+      }
+
+      // Limit date range to prevent performance issues
+      const daysDifference = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDifference > 90) {
+        res.status(400).json(errorResponse('Date range cannot exceed 90 days', 'DATE_RANGE_TOO_LARGE'));
+        return;
+      }
+
+      const availability = await resourcesService.getAvailability(
+        companyId,
+        id,
+        startDate,
+        endDate,
+        validatedData.slotDuration
+      );
+
+      res.json(successResponse({
+        resourceId: id,
+        dateRange: {
+          startDate: validatedData.startDate,
+          endDate: validatedData.endDate,
+          slotDuration: validatedData.slotDuration,
+        },
+        availability,
+      }, 'Resource availability retrieved successfully'));
+    } catch (error) {
+      logger.error('Error in getAvailability:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json(errorResponse('Validation error', 'VALIDATION_ERROR', error.errors));
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json(errorResponse(error.message, 'RESOURCE_NOT_FOUND'));
+      } else {
+        res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+      }
+    }
+  }
+
+  /**
+   * Get resource types
+   * GET /api/v1/resources/types
+   */
+  async getResourceTypes(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const types = resourcesService.getResourceTypes();
+
+      res.json(successResponse(types, 'Resource types retrieved successfully'));
+    } catch (error) {
+      logger.error('Error in getResourceTypes:', error);
+      res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+    }
+  }
+
+  /**
+   * Toggle resource active status
+   * PATCH /api/v1/resources/:id/toggle-active
+   */
+  async toggleActive(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { companyId } = req.user!;
+
+      if (!id) {
+        res.status(400).json(errorResponse('Resource ID is required', 'MISSING_RESOURCE_ID'));
+        return;
+      }
+
+      // Get current resource
+      const currentResource = await resourcesService.getResource(companyId, id);
+
+      if (!currentResource) {
+        res.status(404).json(errorResponse('Resource not found', 'RESOURCE_NOT_FOUND'));
+        return;
+      }
+
+      // Toggle active status
+      const updatedResource = await resourcesService.updateResource(companyId, id, {
+        isActive: !currentResource.isActive,
+      });
+
+      logger.info(`Resource ${id} active status toggled to ${updatedResource.isActive}`, { companyId });
+
+      res.json(successResponse(
+        {
+          resourceId: id,
+          isActive: updatedResource.isActive,
+          toggledAt: new Date().toISOString(),
+        },
+        `Resource ${updatedResource.isActive ? 'activated' : 'deactivated'} successfully`
+      ));
+    } catch (error) {
+      logger.error('Error in toggleActive:', error);
+      res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
+    }
+  }
+}
+
+// Export singleton instance
+export const resourcesController = new ResourcesController();

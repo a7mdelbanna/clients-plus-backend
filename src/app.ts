@@ -42,6 +42,10 @@ import financialRoutes from './routes/financial.routes';
 import saleRoutes from './routes/sale.routes';
 import registerRoutes from './routes/register.routes';
 import uploadRoutes from './routes/upload.routes';
+import whatsappRoutes from './routes/whatsapp.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import settingsRoutes from './routes/settings.routes';
+import resourcesRoutes from './routes/resources.routes';
 
 class App {
   public app: Application;
@@ -137,7 +141,9 @@ class App {
     
     this.app.use(`${apiPrefix}/auth`, authRoutes);
     this.app.use(`${apiPrefix}/companies`, companyRoutes);
-    this.app.use(`${apiPrefix}/company`, branchRoutes); // Mount branch routes under /company to avoid conflicts
+    this.app.use(`${apiPrefix}/company`, companyRoutes); // Mount company routes under /company too for the new endpoints
+    this.app.use(`${apiPrefix}/companies`, branchRoutes); // Mount branch routes under /companies for nested endpoints
+    this.app.use(`${apiPrefix}/branches`, branchRoutes); // Mount branch routes under /branches for direct branch endpoints
     this.app.use(`${apiPrefix}/services`, serviceRoutes);
     this.app.use(`${apiPrefix}/staff`, staffRoutes);
     this.app.use(`${apiPrefix}/appointments`, appointmentRoutes);
@@ -156,6 +162,10 @@ class App {
     this.app.use(`${apiPrefix}/sales`, saleRoutes);
     this.app.use(`${apiPrefix}/register`, registerRoutes);
     this.app.use(`${apiPrefix}/upload`, uploadRoutes);
+    this.app.use(`${apiPrefix}/whatsapp`, whatsappRoutes);
+    this.app.use(`${apiPrefix}/dashboard`, dashboardRoutes);
+    this.app.use(`${apiPrefix}/settings`, settingsRoutes);
+    this.app.use(`${apiPrefix}/resources`, resourcesRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);

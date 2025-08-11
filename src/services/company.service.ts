@@ -1,4 +1,4 @@
-import { PrismaClient, Company, SubscriptionPlan, SubscriptionStatus, BillingCycle } from '@prisma/client';
+import { PrismaClient, Company, SubscriptionPlan, SubscriptionStatus, BillingCycle, Prisma } from '@prisma/client';
 import { logger } from '../config/logger';
 import { ApiError } from '../middleware/error.middleware';
 import { QueryParams } from '../types';
@@ -291,6 +291,295 @@ export class CompanyService {
       logger.error('Error fetching company stats:', error);
       if (error instanceof ApiError) throw error;
       throw new ApiError(500, 'Failed to fetch company statistics', 'STATS_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Get company settings
+   */
+  async getCompanySettings(companyId: string): Promise<any> {
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: {
+          timezone: true,
+          currency: true,
+          dateFormat: true,
+          timeFormat: true,
+          businessType: true,
+          setupCompleted: true,
+          setupProgress: true,
+          teamSize: true,
+          selectedTheme: true,
+        },
+      });
+
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      // Get company settings from CompanySetting model
+      const settings = await prisma.companySetting.findMany({
+        where: { companyId },
+      });
+
+      // Convert settings array to object
+      const settingsMap = settings.reduce((acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      }, {} as any);
+
+      return {
+        ...company,
+        settings: settingsMap,
+      };
+    } catch (error) {
+      logger.error('Error fetching company settings:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to fetch company settings', 'SETTINGS_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Update company settings
+   */
+  async updateCompanySettings(companyId: string, data: any): Promise<any> {
+    try {
+      const company = await this.getCompanyById(companyId);
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      // Update basic company fields
+      const companyUpdateData: any = {};
+      if (data.timezone) companyUpdateData.timezone = data.timezone;
+      if (data.currency) companyUpdateData.currency = data.currency;
+      if (data.dateFormat) companyUpdateData.dateFormat = data.dateFormat;
+      if (data.timeFormat) companyUpdateData.timeFormat = data.timeFormat;
+      if (data.businessType) companyUpdateData.businessType = data.businessType;
+      if (data.teamSize) companyUpdateData.teamSize = data.teamSize;
+      if (data.selectedTheme) companyUpdateData.selectedTheme = data.selectedTheme;
+
+      // Update company if there are basic fields to update
+      if (Object.keys(companyUpdateData).length > 0) {
+        await prisma.company.update({
+          where: { id: companyId },
+          data: {
+            ...companyUpdateData,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      // Update settings in CompanySetting model
+      if (data.settings) {
+        for (const [key, value] of Object.entries(data.settings)) {
+          await prisma.companySetting.upsert({
+            where: {
+              companyId_key: {
+                companyId,
+                key,
+              },
+            },
+            update: {
+              value: value as Prisma.InputJsonValue,
+              updatedAt: new Date(),
+            },
+            create: {
+              companyId,
+              key,
+              value: value as Prisma.InputJsonValue,
+            },
+          });
+        }
+      }
+
+      return await this.getCompanySettings(companyId);
+    } catch (error) {
+      logger.error('Error updating company settings:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to update company settings', 'SETTINGS_UPDATE_ERROR');
+    }
+  }
+
+  /**
+   * Get company profile
+   */
+  async getCompanyProfile(companyId: string): Promise<any> {
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          website: true,
+          address: true,
+          logo: true,
+          businessType: true,
+          taxId: true,
+          registrationNumber: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      return company;
+    } catch (error) {
+      logger.error('Error fetching company profile:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to fetch company profile', 'PROFILE_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Update company profile
+   */
+  async updateCompanyProfile(companyId: string, data: any): Promise<any> {
+    try {
+      const company = await this.getCompanyById(companyId);
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      // Check if email is being updated and ensure uniqueness
+      if (data.email && data.email !== company.email) {
+        const emailExists = await prisma.company.findUnique({
+          where: { email: data.email },
+        });
+        if (emailExists) {
+          throw new ApiError(409, 'Email already in use', 'EMAIL_EXISTS');
+        }
+      }
+
+      const updatedCompany = await prisma.company.update({
+        where: { id: companyId },
+        data: {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          website: data.website,
+          address: data.address,
+          businessType: data.businessType,
+          taxId: data.taxId,
+          registrationNumber: data.registrationNumber,
+          updatedAt: new Date(),
+        },
+      });
+
+      return await this.getCompanyProfile(companyId);
+    } catch (error) {
+      logger.error('Error updating company profile:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to update company profile', 'PROFILE_UPDATE_ERROR');
+    }
+  }
+
+  /**
+   * Upload company logo
+   */
+  async uploadCompanyLogo(companyId: string, file: Express.Multer.File): Promise<string> {
+    try {
+      const company = await this.getCompanyById(companyId);
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      // Here you would implement actual file upload logic
+      // For now, we'll simulate a file path
+      const logoUrl = `/uploads/companies/${companyId}/logo-${Date.now()}-${file.originalname}`;
+
+      // Update company with new logo URL
+      await prisma.company.update({
+        where: { id: companyId },
+        data: {
+          logo: logoUrl,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info(`Company logo updated: ${company.name} (${company.id})`);
+      return logoUrl;
+    } catch (error) {
+      logger.error('Error uploading company logo:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to upload company logo', 'LOGO_UPLOAD_ERROR');
+    }
+  }
+
+  /**
+   * Get company subscription details
+   */
+  async getCompanySubscription(companyId: string): Promise<any> {
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: {
+          subscriptionPlan: true,
+          subscriptionStatus: true,
+          subscriptionStartDate: true,
+          subscriptionEndDate: true,
+          billingCycle: true,
+        },
+      });
+
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      return company;
+    } catch (error) {
+      logger.error('Error fetching company subscription:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to fetch company subscription', 'SUBSCRIPTION_FETCH_ERROR');
+    }
+  }
+
+  /**
+   * Update company subscription details
+   */
+  async updateCompanySubscription(companyId: string, data: any): Promise<any> {
+    try {
+      const company = await this.getCompanyById(companyId);
+      if (!company) {
+        throw new ApiError(404, 'Company not found', 'COMPANY_NOT_FOUND');
+      }
+
+      const updateData: any = {};
+      if (data.subscriptionPlan) updateData.subscriptionPlan = data.subscriptionPlan;
+      if (data.subscriptionStatus) updateData.subscriptionStatus = data.subscriptionStatus;
+      if (data.billingCycle) updateData.billingCycle = data.billingCycle;
+
+      // Calculate end date based on billing cycle
+      if (data.billingCycle) {
+        const endDate = new Date();
+        if (data.billingCycle === BillingCycle.MONTHLY) {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (data.billingCycle === BillingCycle.YEARLY) {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        }
+        updateData.subscriptionEndDate = endDate;
+        updateData.subscriptionStartDate = new Date();
+      }
+
+      await prisma.company.update({
+        where: { id: companyId },
+        data: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      });
+
+      return await this.getCompanySubscription(companyId);
+    } catch (error) {
+      logger.error('Error updating company subscription:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(500, 'Failed to update company subscription', 'SUBSCRIPTION_UPDATE_ERROR');
     }
   }
 }

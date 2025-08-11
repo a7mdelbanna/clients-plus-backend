@@ -1718,6 +1718,175 @@ export class AppointmentService {
 
     return Math.max(0, score);
   }
+
+  /**
+   * Confirm appointment
+   */
+  async confirmAppointment(appointmentId: string, userId: string) {
+    try {
+      const appointment = await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          status: AppointmentStatus.CONFIRMED,
+          updatedAt: new Date(),
+          changeHistory: {
+            push: {
+              changedAt: new Date(),
+              changedBy: userId,
+              changes: ['Status updated to CONFIRMED']
+            }
+          }
+        },
+        include: {
+          client: true,
+          staff: true,
+          branch: true,
+          company: true,
+          reminders: true
+        }
+      });
+
+      // Send confirmation notification
+      await this.sendAppointmentNotifications(appointmentId, 'confirmation');
+
+      return appointment;
+    } catch (error) {
+      console.error('Error confirming appointment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get calendar view with appointments
+   */
+  async getCalendarView(params: {
+    companyId: string;
+    branchId?: string;
+    staffId?: string;
+    startDate: Date;
+    endDate: Date;
+    view: 'day' | 'week' | 'month';
+  }) {
+    try {
+      const where: any = {
+        companyId: params.companyId,
+        date: {
+          gte: params.startDate,
+          lte: params.endDate
+        }
+      };
+
+      if (params.branchId) where.branchId = params.branchId;
+      if (params.staffId) where.staffId = params.staffId;
+
+      const appointments = await prisma.appointment.findMany({
+        where,
+        include: {
+          client: true,
+          staff: true,
+          branch: true
+        },
+        orderBy: [
+          { date: 'asc' },
+          { startTime: 'asc' }
+        ]
+      });
+
+      // Group appointments by date for calendar display
+      const calendarData = appointments.reduce((acc, appointment) => {
+        const dateKey = format(appointment.date, 'yyyy-MM-dd');
+        
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        
+        acc[dateKey].push({
+          id: appointment.id,
+          title: `${appointment.clientName} - ${this.getServicesDisplay(appointment.services)}`,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          duration: appointment.totalDuration,
+          clientName: appointment.clientName,
+          clientPhone: appointment.clientPhone,
+          staffName: appointment.staff?.name,
+          status: appointment.status,
+          totalPrice: appointment.totalPrice.toNumber(),
+          color: appointment.color,
+          services: appointment.services,
+          notes: appointment.notes
+        });
+        
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Get working hours for staff if specified
+      let workingHours = null;
+      if (params.staffId) {
+        workingHours = await this.getStaffWorkingSchedule(params.staffId, params.startDate, params.endDate);
+      }
+
+      return {
+        calendar: calendarData,
+        workingHours,
+        summary: {
+          totalAppointments: appointments.length,
+          statusBreakdown: {
+            pending: appointments.filter(a => a.status === 'PENDING').length,
+            confirmed: appointments.filter(a => a.status === 'CONFIRMED').length,
+            completed: appointments.filter(a => a.status === 'COMPLETED').length,
+            cancelled: appointments.filter(a => a.status === 'CANCELLED').length,
+            noShow: appointments.filter(a => a.status === 'NO_SHOW').length
+          },
+          totalRevenue: appointments.reduce((sum, a) => sum + a.totalPrice.toNumber(), 0),
+          period: {
+            startDate: params.startDate,
+            endDate: params.endDate,
+            view: params.view
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error getting calendar view:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to get services display string
+   */
+  private getServicesDisplay(services: any): string {
+    if (!services || !Array.isArray(services)) return 'Service';
+    return services.map(s => s.serviceName || s.name).join(', ');
+  }
+
+  /**
+   * Get staff working schedule for calendar view
+   */
+  private async getStaffWorkingSchedule(staffId: string, startDate: Date, endDate: Date) {
+    try {
+      const schedules = await prisma.staffSchedule.findMany({
+        where: {
+          staffId,
+          startDate: { lte: endDate },
+          OR: [
+            { endDate: null },
+            { endDate: { gte: startDate } }
+          ]
+        }
+      });
+
+      return schedules.map(schedule => ({
+        dayOfWeek: schedule.dayOfWeek,
+        isWorking: schedule.isWorking,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        breaks: schedule.breaks
+      }));
+    } catch (error) {
+      console.error('Error getting staff working schedule:', error);
+      return null;
+    }
+  }
 }
 
 export const appointmentService = new AppointmentService();

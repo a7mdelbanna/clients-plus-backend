@@ -698,6 +698,312 @@ export class BranchController {
       });
     }
   }
+
+  /**
+   * Get branch settings
+   */
+  async getBranchSettings(req: Request, res: Response): Promise<void> {
+    try {
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const settings = await branchService.getBranchSettings(companyId, branchId);
+
+      res.status(200).json({
+        success: true,
+        data: settings,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Get branch settings error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch branch settings',
+        error: 'SETTINGS_FETCH_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Update branch settings
+   */
+  async updateBranchSettings(req: Request, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array(),
+        });
+        return;
+      }
+
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const settings = await branchService.updateBranchSettings(companyId, branchId, req.body);
+
+      res.status(200).json({
+        success: true,
+        message: 'Branch settings updated successfully',
+        data: settings,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Update branch settings error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update branch settings',
+        error: 'SETTINGS_UPDATE_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Get branch working hours
+   */
+  async getBranchWorkingHours(req: Request, res: Response): Promise<void> {
+    try {
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const workingHours = await branchService.getBranchWorkingHours(companyId, branchId);
+
+      res.status(200).json({
+        success: true,
+        data: workingHours,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Get branch working hours error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch branch working hours',
+        error: 'WORKING_HOURS_FETCH_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Update branch working hours
+   */
+  async updateBranchWorkingHours(req: Request, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array(),
+        });
+        return;
+      }
+
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const workingHours = await branchService.updateBranchWorkingHours(companyId, branchId, req.body);
+
+      res.status(200).json({
+        success: true,
+        message: 'Branch working hours updated successfully',
+        data: workingHours,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Update branch working hours error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update branch working hours',
+        error: 'WORKING_HOURS_UPDATE_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Activate branch
+   */
+  async activateBranch(req: Request, res: Response): Promise<void> {
+    try {
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const branch = await branchService.activateBranch(companyId, branchId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Branch activated successfully',
+        data: branch,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Activate branch error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to activate branch',
+        error: 'ACTIVATION_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Deactivate branch
+   */
+  async deactivateBranch(req: Request, res: Response): Promise<void> {
+    try {
+      const { branchId } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Company ID not found',
+          error: 'COMPANY_ID_MISSING',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const branch = await branchService.deactivateBranch(companyId, branchId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Branch deactivated successfully',
+        data: branch,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse);
+    } catch (error) {
+      logger.error('Deactivate branch error:', error);
+      
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          error: error.errorCode,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to deactivate branch',
+        error: 'DEACTIVATION_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }
 
 export const branchController = new BranchController();
