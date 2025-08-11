@@ -82,6 +82,9 @@ model Company {
   financialReports     FinancialReport[]
   financialSettings    FinancialSettings?
   
+  // File storage
+  files                File[]
+  
   // Sales relations
   sales                Sale[]
 
@@ -2248,6 +2251,42 @@ model SaleRefund {
   @@index([refundDate])
   @@index([status])
   @@map("sale_refunds")
+}
+
+// ============================================================================
+// FILE STORAGE MODEL
+// ============================================================================
+
+model File {
+  id String @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // File details
+  fileName     String
+  mimeType     String
+  size         Int
+  type         String // avatar, service, document, logo, invoice
+  url          String
+  thumbnailUrl String?
+  
+  // Upload information
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+  
+  // Metadata
+  metadata  Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([type])
+  @@index([uploadedBy])
+  @@map("files")
 }
 
 // ============================================================================

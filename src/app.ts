@@ -41,6 +41,7 @@ import productCategoryRoutes from './routes/product-category.routes';
 import financialRoutes from './routes/financial.routes';
 import saleRoutes from './routes/sale.routes';
 import registerRoutes from './routes/register.routes';
+import uploadRoutes from './routes/upload.routes';
 
 class App {
   public app: Application;
@@ -154,6 +155,7 @@ class App {
     this.app.use(`${apiPrefix}/reports`, reportsRoutes);
     this.app.use(`${apiPrefix}/sales`, saleRoutes);
     this.app.use(`${apiPrefix}/register`, registerRoutes);
+    this.app.use(`${apiPrefix}/upload`, uploadRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);
