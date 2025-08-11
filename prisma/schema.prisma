@@ -81,6 +81,9 @@ model Company {
   taxRates             TaxRate[]
   financialReports     FinancialReport[]
   financialSettings    FinancialSettings?
+  
+  // Sales relations
+  sales                Sale[]
 
   @@index([subscriptionStatus])
   @@index([isActive])
@@ -205,6 +208,9 @@ model Branch {
   budgets              Budget[]
   cashRegisterDays     CashRegisterDay[]
   financialReports     FinancialReport[]
+  
+  // Sales relations
+  sales                Sale[]
 
   @@index([companyId])
   @@index([type])
@@ -264,6 +270,7 @@ model Client {
   appointments Appointment[]
   invoices     Invoice[]
   payments     Payment[]
+  sales        Sale[]
 
   @@index([companyId])
   @@index([email])
@@ -378,6 +385,7 @@ model Staff {
   services     StaffService[]
   timeOffs     StaffTimeOff[]
   schedules    StaffSchedule[]
+  sales        Sale[]
 
   @@index([companyId])
   @@index([primaryBranchId])
@@ -461,6 +469,7 @@ model Service {
   // Relations
   branches      ServiceBranch[]
   staffServices StaffService[]
+  saleItems     SaleItem[]
 
   @@index([companyId])
   @@index([categoryId])
@@ -840,6 +849,7 @@ model Invoice {
   items        InvoiceItem[]
   appointments AppointmentInvoice[]
   payments     Payment[]
+  sales        Sale[]
 
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
@@ -1290,6 +1300,7 @@ model Product {
   // Relations
   inventories Inventory[]
   movements   InventoryMovement[]
+  saleItems   SaleItem[]
 
   @@index([companyId])
   @@index([categoryId])
@@ -1943,6 +1954,9 @@ model CashRegisterDay {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  // Relations
+  sales Sale[]
+  
   @@unique([branchId, accountId, date])
   @@index([companyId])
   @@index([branchId])
@@ -2082,6 +2096,161 @@ model FinancialSettings {
 }
 
 // ============================================================================
+// SALES AND POS MODELS
+// ============================================================================
+
+model Sale {
+  id String @id @default(cuid())
+  
+  // Multi-tenant relationship
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Transaction details
+  saleNumber   String   @unique
+  saleDate     DateTime @default(now())
+  
+  // Location and staff
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  
+  staffId String?
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+  
+  // Customer (optional for POS sales)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+  
+  // Items and pricing
+  items         SaleItem[]
+  subtotal      Decimal @db.Decimal(15, 2)
+  discountType  DiscountType @default(FIXED)
+  discountValue Decimal @default(0) @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @db.Decimal(15, 2)
+  taxAmount     Decimal @default(0) @db.Decimal(15, 2)
+  total         Decimal @db.Decimal(15, 2)
+  
+  // Payment information
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(COMPLETED)
+  amountPaid    Decimal @db.Decimal(15, 2)
+  changeDue     Decimal @default(0) @db.Decimal(15, 2)
+  
+  // Reference numbers
+  receiptNumber String?
+  invoiceId     String? // Link to generated invoice if needed
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  // Status
+  status SaleStatus @default(COMPLETED)
+  
+  // Additional information
+  notes         String?
+  internalNotes String?
+  
+  // Refund tracking
+  refunds       SaleRefund[]
+  isRefunded    Boolean @default(false)
+  refundedAmount Decimal @default(0) @db.Decimal(15, 2)
+  
+  // Cash register reference
+  registerDayId String?
+  registerDay   CashRegisterDay? @relation(fields: [registerDayId], references: [id])
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  @@index([companyId])
+  @@index([branchId])
+  @@index([clientId])
+  @@index([staffId])
+  @@index([saleDate])
+  @@index([paymentMethod])
+  @@index([status])
+  @@index([registerDayId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id String @id @default(cuid())
+  
+  // Sale relationship
+  saleId String
+  sale   Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  type        ItemType @default(PRODUCT)
+  productId   String? // For product items
+  product     Product? @relation(fields: [productId], references: [id])
+  serviceId   String? // For service items  
+  service     Service? @relation(fields: [serviceId], references: [id])
+  
+  // Item information
+  name        String // Item name at time of sale
+  description String?
+  sku         String? // Product SKU if applicable
+  
+  // Pricing
+  unitPrice   Decimal @db.Decimal(15, 2)
+  quantity    Decimal @db.Decimal(15, 4)
+  discount    Decimal @default(0) @db.Decimal(15, 2)
+  taxRate     Decimal @default(0) @db.Decimal(5, 4)
+  taxAmount   Decimal @default(0) @db.Decimal(15, 2)
+  lineTotal   Decimal @db.Decimal(15, 2)
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([saleId])
+  @@index([productId])
+  @@index([serviceId])
+  @@map("sale_items")
+}
+
+model SaleRefund {
+  id String @id @default(cuid())
+  
+  // Sale relationship
+  saleId String
+  sale   Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  
+  // Refund details
+  refundNumber String   @unique
+  refundDate   DateTime @default(now())
+  amount       Decimal  @db.Decimal(15, 2)
+  reason       String?
+  
+  // Refund items (which specific items were refunded)
+  refundItems Json? // Array of {itemId, quantity, amount}
+  
+  // Payment details
+  refundMethod    PaymentMethod
+  refundReference String? // Reference number for refund transaction
+  
+  // Status
+  status RefundStatus @default(COMPLETED)
+  
+  // Processing information
+  processedBy String?
+  processedAt DateTime @default(now())
+  
+  // Notes
+  notes String?
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([saleId])
+  @@index([refundDate])
+  @@index([status])
+  @@map("sale_refunds")
+}
+
+// ============================================================================
 // FINANCIAL ENUMS
 // ============================================================================
 
@@ -2195,4 +2364,34 @@ enum FinancialReportType {
   TAX_REPORT
   RECONCILIATION
   CUSTOM
+}
+
+// ============================================================================
+// SALES AND POS ENUMS
+// ============================================================================
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ItemType {
+  PRODUCT
+  SERVICE
+  CUSTOM
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum RefundStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  FAILED
 }

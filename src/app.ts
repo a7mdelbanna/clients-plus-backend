@@ -30,15 +30,17 @@ import serviceRoutes from './routes/service.routes';
 import staffRoutes from './routes/staff.routes';
 import appointmentRoutes from './routes/appointment.routes';
 import setupRoutes from './routes/setup.routes';
-// import notificationRoutes from './routes/notification.routes';
+import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
 import { analyticsRoutes } from './routes/analytics.routes';
-// import { reportsRoutes } from './routes/reports.routes';
+import { reportsRoutes } from './routes/reports.routes';
 import publicRoutes from './routes/public.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import productRoutes from './routes/product.routes';
 import productCategoryRoutes from './routes/product-category.routes';
 import financialRoutes from './routes/financial.routes';
+import saleRoutes from './routes/sale.routes';
+import registerRoutes from './routes/register.routes';
 
 class App {
   public app: Application;
@@ -147,6 +149,11 @@ class App {
     this.app.use(`${apiPrefix}/products`, productRoutes);
     this.app.use(`${apiPrefix}/product-categories`, productCategoryRoutes);
     this.app.use(`${apiPrefix}/finance`, financialRoutes);
+    // this.app.use(`${apiPrefix}/invoices`, invoiceRoutes);
+    this.app.use(`${apiPrefix}/notifications`, notificationRoutes);
+    this.app.use(`${apiPrefix}/reports`, reportsRoutes);
+    this.app.use(`${apiPrefix}/sales`, saleRoutes);
+    this.app.use(`${apiPrefix}/register`, registerRoutes);
     
     // Public routes (no authentication required)
     this.app.use(`${apiPrefix}/public`, publicRoutes);
