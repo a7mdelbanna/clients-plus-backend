@@ -1,21 +1,15 @@
 import { Router } from 'express';
 import { reportsController } from '../controllers/reports.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { rateLimitMiddleware } from '../middleware/rate-limit.middleware';
+import { exportRateLimit } from '../middleware/rate-limit.middleware';
 
 const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticate);
 
-// Apply rate limiting to report endpoints
-const reportsRateLimit = rateLimitMiddleware({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 requests per window (reports are more resource intensive)
-  message: 'Too many report requests, please try again later'
-});
-
-router.use(reportsRateLimit);
+// Apply rate limiting to report endpoints (reports are resource intensive)
+router.use(exportRateLimit);
 
 /**
  * @swagger

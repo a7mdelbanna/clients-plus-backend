@@ -24,7 +24,7 @@ const customReportSchema = z.object({
   serviceId: z.string().optional(),
   groupBy: z.enum(['day', 'week', 'month']).optional().default('day'),
   metrics: z.array(z.string()).optional().default([]),
-  filters: z.record(z.any()).optional().default({}),
+  filters: z.record(z.string(), z.any()).optional().default({}),
   format: z.enum(['json', 'pdf', 'excel', 'csv']).optional().default('json')
 });
 
@@ -362,7 +362,7 @@ export class ReportsController {
       const validation = z.object({
         reportType: z.enum(['daily', 'monthly', 'custom']),
         schedule: z.string(), // Cron expression
-        parameters: z.record(z.any()),
+        parameters: z.record(z.string(), z.any()),
         exportFormat: z.enum(['pdf', 'excel', 'csv']).default('pdf'),
         recipients: z.array(z.string().email()).min(1),
         isActive: z.boolean().default(true)
@@ -449,7 +449,7 @@ export class ReportsController {
       
       const validation = z.object({
         schedule: z.string().optional(),
-        parameters: z.record(z.any()).optional(),
+        parameters: z.record(z.string(), z.any()).optional(),
         exportFormat: z.enum(['pdf', 'excel', 'csv']).optional(),
         recipients: z.array(z.string().email()).optional(),
         isActive: z.boolean().optional()

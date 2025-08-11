@@ -188,7 +188,7 @@ export class InventoryController {
 
       const adjustmentData: StockAdjustmentData = {
         ...req.body,
-        performedBy: req.user.id,
+        performedBy: req.user.userId,
       };
 
       const movement = await inventoryService.adjustStock(
@@ -236,7 +236,7 @@ export class InventoryController {
 
       const transferData: StockTransferData = {
         ...req.body,
-        performedBy: req.user.id,
+        performedBy: req.user.userId,
       };
 
       const result = await inventoryService.transferStock(
@@ -294,7 +294,7 @@ export class InventoryController {
         unitCost,
         reference,
         notes,
-        req.user.id
+        req.user.userId
       );
 
       res.status(201).json({
@@ -344,7 +344,7 @@ export class InventoryController {
         quantity,
         reference,
         notes,
-        req.user.id
+        req.user.userId
       );
 
       res.status(201).json({

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { notificationQueue, NotificationJob, NotificationJobData } from '../services/queue.service';
+import { notificationQueue, NotificationJob, NotificationJobData } from '../services/queue.service.mock';
 import { whatsappService } from '../services/whatsapp.service';
 import { messageTemplateService } from '../templates/messages';
 import { validateData } from '../utils/validation';
@@ -22,7 +22,7 @@ const SendNotificationSchema = z.object({
     templateId: z.string().optional(),
     content: z.string().optional(),
     subject: z.string().optional(),
-    variables: z.record(z.string()).optional()
+    variables: z.record(z.string(), z.string()).optional()
   }),
   priority: z.enum(['low', 'normal', 'high', 'critical']).default('normal'),
   appointmentId: z.string().optional()
@@ -45,7 +45,7 @@ const BulkNotificationSchema = z.object({
     templateId: z.string().optional(),
     content: z.string().optional(),
     subject: z.string().optional(),
-    variables: z.record(z.string()).optional()
+    variables: z.record(z.string(), z.string()).optional()
   }),
   priority: z.enum(['low', 'normal', 'high', 'critical']).default('normal')
 });
@@ -205,7 +205,7 @@ export class NotificationController {
       }
 
       // Create jobs for each recipient
-      const jobs: NotificationJob[] = validatedData.recipients.map((recipient, index) => ({
+      const jobs: NotificationJob[] = validatedData.recipients.map((recipient: any, index: number) => ({
         id: `bulk_notification_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         type: validatedData.type,
         priority: validatedData.priority,

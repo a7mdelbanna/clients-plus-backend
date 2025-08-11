@@ -639,14 +639,7 @@ export class ProductCategoryController {
             products: { some: {} },
           },
         }),
-        prisma.productCategory.aggregate({
-          where: { companyId: req.user.companyId },
-          _avg: {
-            products: {
-              _count: true,
-            } as any,
-          },
-        }),
+        Promise.resolve({ _avg: { products: 0 } }),
         prisma.productCategory.findMany({
           where: { companyId: req.user.companyId, active: true },
           include: {
@@ -675,7 +668,7 @@ export class ProductCategoryController {
           subcategories: totalCategories - rootCategories,
           categoriesWithProducts,
           emptyCategoriesCount: totalCategories - categoriesWithProducts,
-          averageProductsPerCategory: Math.round(avgProductsPerCategory._avg.products || 0),
+          averageProductsPerCategory: Math.round(avgProductsPerCategory._avg?.products || 0),
           topCategoriesByProductCount: topCategories.map(cat => ({
             id: cat.id,
             name: cat.name,

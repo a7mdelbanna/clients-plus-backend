@@ -287,7 +287,7 @@ export class OptimizationService {
       // Cache for 5 minutes
       await redisService.set(cacheKey, metrics, { ttl: 300 });
       
-      return metrics[0];
+      return (metrics as any[])[0];
     } catch (error) {
       logger.error('Error getting dashboard metrics:', error);
       throw error;

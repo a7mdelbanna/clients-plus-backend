@@ -1348,7 +1348,7 @@ export class AppointmentService {
         clientAnalytics: {
           newClients: appointments.filter(a => a.isNewClient).length,
           returningClients: appointments.filter(a => !a.isNewClient).length,
-          uniqueClients: [...new Set(appointments.map(a => a.clientId))].length
+          uniqueClients: Array.from(new Set(appointments.map(a => a.clientId))).length
         },
         trends: params.groupBy ? this.getTrends(appointments, params.groupBy) : null
       };
@@ -1536,7 +1536,7 @@ export class AppointmentService {
     }, {} as Record<string, number>);
 
     const topStaff = Object.entries(staffCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 1)[0];
 
     return topStaff ? {
@@ -1581,9 +1581,9 @@ export class AppointmentService {
     }, {} as Record<string, number>);
 
     return Object.entries(serviceCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
-      .map(([service, count]) => ({ service, count }));
+      .map(([service, count]) => ({ service, count: count as number }));
   }
 
   private getTopStaff(appointments: any[]) {
@@ -1595,9 +1595,9 @@ export class AppointmentService {
     }, {} as Record<string, number>);
 
     return Object.entries(staffCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
-      .map(([staff, count]) => ({ staff, count }));
+      .map(([staff, count]) => ({ staff, count: count as number }));
   }
 
   private getBusyHours(appointments: any[]) {
@@ -1608,9 +1608,9 @@ export class AppointmentService {
     }, {} as Record<number, number>);
 
     return Object.entries(hourCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
-      .map(([hour, count]) => ({ hour: parseInt(hour), count }));
+      .map(([hour, count]) => ({ hour: parseInt(hour), count: count as number }));
   }
 
   private getTrends(appointments: any[], groupBy: 'day' | 'week' | 'month') {
@@ -1637,7 +1637,7 @@ export class AppointmentService {
 
     return Object.entries(grouped)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, data]) => ({ period, ...data }));
+      .map(([period, data]) => ({ period, appointments: (data as { appointments: number; revenue: number }).appointments, revenue: (data as { appointments: number; revenue: number }).revenue }));
   }
 
   private getClientNoShowBreakdown(noShows: any[]) {
@@ -1648,9 +1648,9 @@ export class AppointmentService {
     }, {} as Record<string, number>);
 
     return Object.entries(clientCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 10)
-      .map(([client, count]) => ({ client, count }));
+      .map(([client, count]) => ({ client, count: count as number }));
   }
 
   private getNoShowTimePatterns(noShows: any[]) {
@@ -1670,8 +1670,8 @@ export class AppointmentService {
 
     return {
       byHour: Object.entries(hourCounts)
-        .sort(([, a], [, b]) => b - a)
-        .map(([hour, count]) => ({ hour: parseInt(hour), count })),
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .map(([hour, count]) => ({ hour: parseInt(hour), count: count as number })),
       byDayOfWeek: Object.entries(dayOfWeekCounts)
         .map(([day, count]) => ({ day, count }))
     };
@@ -1686,8 +1686,8 @@ export class AppointmentService {
     }, {} as Record<string, number>);
 
     return Object.entries(staffCounts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([staff, count]) => ({ staff, count }));
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .map(([staff, count]) => ({ staff, count: count as number }));
   }
 
   private scoreRescheduleOption(slot: any, originalAppointment: any, preferences: any): number {

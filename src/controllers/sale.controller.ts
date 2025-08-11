@@ -235,7 +235,7 @@ export class SaleController {
         reason,
         refundItems,
         refundMethod: refundMethod || 'CASH',
-        processedBy: req.user.id,
+        processedBy: req.user.userId,
       });
 
       res.json({
@@ -387,7 +387,7 @@ export class SaleController {
       const updatedSale = await this.saleService.applyDiscount(req.user.companyId, saleId, {
         discountType,
         discountValue,
-        appliedBy: req.user.id,
+        appliedBy: req.user.userId,
       });
 
       res.json({

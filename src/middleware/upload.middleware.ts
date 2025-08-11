@@ -119,7 +119,7 @@ export const checkFileSize = (req: Request, res: any, next: any) => {
   const files = req.files ? (Array.isArray(req.files) ? req.files : Object.values(req.files).flat()) : [req.file];
   
   for (const file of files.filter(Boolean)) {
-    if (file.size > config.maxSize) {
+    if (file && file.size > config.maxSize) {
       // Delete the uploaded file
       if (file.path) {
         fs.unlinkSync(file.path);

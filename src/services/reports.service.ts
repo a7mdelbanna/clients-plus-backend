@@ -245,11 +245,10 @@ export class ReportsService {
 
       // Format appointments
       const upcomingAppointments = appointments
-        .filter(apt => [
-          AppointmentStatus.PENDING,
-          AppointmentStatus.SCHEDULED,
-          AppointmentStatus.CONFIRMED
-        ].includes(apt.status))
+        .filter(apt => 
+          apt.status === AppointmentStatus.PENDING ||
+          apt.status === AppointmentStatus.CONFIRMED
+        )
         .map(apt => ({
           id: apt.id,
           clientName: `${apt.client.firstName} ${apt.client.lastName}`,

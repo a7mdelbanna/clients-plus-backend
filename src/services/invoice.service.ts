@@ -628,8 +628,8 @@ export class InvoiceService {
 
     const balanceAmount = invoice.total.sub(totalPaid);
 
-    let paymentStatus = PaymentStatus.PENDING;
-    let invoiceStatus = invoice.status;
+    let paymentStatus: PaymentStatus = PaymentStatus.PENDING;
+    let invoiceStatus: InvoiceStatus = invoice.status;
 
     if (totalPaid.greaterThanOrEqualTo(invoice.total)) {
       paymentStatus = PaymentStatus.PAID;

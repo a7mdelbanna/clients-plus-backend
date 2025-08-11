@@ -33,7 +33,8 @@ export class InvoiceController {
       // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -60,7 +61,8 @@ export class InvoiceController {
       });
 
       if (!branch) {
-        return errorResponse(res, 'Invalid branch for this company', 400);
+        errorResponse(res, 'Invalid branch for this company', 400);
+        return;
       }
 
       // Validate client belongs to company
@@ -69,9 +71,10 @@ export class InvoiceController {
       });
 
       if (!client) {
-        return res.status(400).json(
+        res.status(400).json(
           errorResponse('Invalid client for this company')
         );
+        return;
       }
 
       // Validate appointment if provided
@@ -81,9 +84,10 @@ export class InvoiceController {
         });
 
         if (!appointment) {
-          return res.status(400).json(
+          res.status(400).json(
             errorResponse('Invalid appointment for this company')
           );
+          return;
         }
       }
 
@@ -107,7 +111,7 @@ export class InvoiceController {
         userId
       );
 
-      return successResponse(res, 'Invoice created successfully', invoice, 201);
+      successResponse(res, 'Invoice created successfully', invoice, 201);
     } catch (error) {
       console.error('Create invoice error:', error);
       res.status(500).json(
@@ -169,7 +173,7 @@ export class InvoiceController {
    * Get invoice by ID
    * GET /api/v1/invoices/:id
    */
-  async getInvoiceById(req: AuthenticatedRequest, res: Response) {
+  async getInvoiceById(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { companyId } = req.user!;
@@ -177,9 +181,10 @@ export class InvoiceController {
       const invoice = await invoiceService.getInvoiceById(id, companyId);
 
       if (!invoice) {
-        return res.status(404).json(
+        res.status(404).json(
           errorResponse('Invoice not found')
         );
+        return;
       }
 
       res.json(
@@ -197,12 +202,13 @@ export class InvoiceController {
    * Update invoice
    * PUT /api/v1/invoices/:id
    */
-  async updateInvoice(req: AuthenticatedRequest, res: Response) {
+  async updateInvoice(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { id } = req.params;
@@ -320,7 +326,7 @@ export class InvoiceController {
    * Generate invoice PDF
    * GET /api/v1/invoices/:id/pdf
    */
-  async generateInvoicePDF(req: AuthenticatedRequest, res: Response) {
+  async generateInvoicePDF(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { companyId } = req.user!;
@@ -329,9 +335,10 @@ export class InvoiceController {
       const invoice = await invoiceService.getInvoiceById(id, companyId);
 
       if (!invoice) {
-        return res.status(404).json(
+        res.status(404).json(
           errorResponse('Invoice not found')
         );
+        return;
       }
 
       const pdfOptions = {
@@ -493,7 +500,8 @@ export class InvoiceController {
       // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { id: invoiceId } = req.params;
@@ -512,9 +520,10 @@ export class InvoiceController {
       // Validate the invoice exists and belongs to the company
       const invoice = await invoiceService.getInvoiceById(invoiceId, companyId);
       if (!invoice) {
-        return res.status(404).json(
+        res.status(404).json(
           errorResponse('Invoice not found')
         );
+        return;
       }
 
       const payment = await paymentService.createPayment(
@@ -575,7 +584,8 @@ export class InvoiceController {
       // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { id: invoiceId } = req.params;
@@ -585,9 +595,10 @@ export class InvoiceController {
       // Validate the invoice exists
       const invoice = await invoiceService.getInvoiceById(invoiceId, companyId);
       if (!invoice) {
-        return res.status(404).json(
+        res.status(404).json(
           errorResponse('Invoice not found')
         );
+        return;
       }
 
       const refund = await paymentService.processRefund(

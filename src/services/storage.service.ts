@@ -188,6 +188,7 @@ export class StorageService {
 
     return {
       ...file,
+      userId: file.uploadedBy, // Map uploadedBy to userId for FileData interface
       url: file.url,
       thumbnailUrl: file.thumbnailUrl || undefined,
       createdAt: file.createdAt,

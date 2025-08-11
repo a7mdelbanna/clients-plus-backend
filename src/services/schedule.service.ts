@@ -266,7 +266,7 @@ class ScheduleService {
       where: {
         staffId,
         branchId,
-        startTime: {
+        date: {
           gte: startOfDay,
           lte: endOfDay,
         },
@@ -275,13 +275,14 @@ class ScheduleService {
         },
       },
       orderBy: { startTime: 'asc' },
-      include: {
-        service: {
-          select: {
-            duration: true,
-            // bufferTime: true // Field may not exist,
-          },
-        },
+      select: {
+        id: true,
+        date: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        staffId: true,
+        services: true,
       },
     });
 
@@ -298,11 +299,17 @@ class ScheduleService {
       // Check if slot conflicts with appointments
       let conflictReason: string | undefined;
       const hasAppointmentConflict = appointments.some(apt => {
-        const aptStart = new Date(apt.startTime);
-        const aptEnd = new Date(apt.endTime);
+        const [aptStartHour, aptStartMinute] = apt.startTime.split(':').map(Number);
+        const [aptEndHour, aptEndMinute] = apt.endTime.split(':').map(Number);
         
-        // Add buffer time to appointment
-        const bufferMinutes = apt.service?.bufferTime || bufferTime;
+        const aptStart = new Date(date);
+        aptStart.setHours(aptStartHour, aptStartMinute, 0, 0);
+        
+        const aptEnd = new Date(date);
+        aptEnd.setHours(aptEndHour, aptEndMinute, 0, 0);
+        
+        // Add buffer time to appointment  
+        const bufferMinutes = bufferTime;
         aptEnd.setMinutes(aptEnd.getMinutes() + bufferMinutes);
 
         const overlaps = (currentTime < aptEnd && slotEnd > aptStart);
@@ -519,7 +526,7 @@ class ScheduleService {
           endDate: schedule.endDate,
           startTime: schedule.startTime,
           endTime: schedule.endTime,
-          breaks: schedule.breaks,
+          breaks: schedule.breaks as Prisma.InputJsonValue,
           isWorking: schedule.isWorking,
           type: 'REGULAR',
         });
@@ -587,16 +594,18 @@ class ScheduleService {
         branchId,
         id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
         status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-        OR: [
-          {
-            startTime: { lt: endTime },
-            endTime: { gt: appointmentDateTime },
-          },
-        ],
+        date: {
+          gte: new Date(appointmentDateTime.getFullYear(), appointmentDateTime.getMonth(), appointmentDateTime.getDate()),
+          lte: new Date(appointmentDateTime.getFullYear(), appointmentDateTime.getMonth(), appointmentDateTime.getDate(), 23, 59, 59)
+        },
       },
-      include: {
-        client: { select: { firstName: true, lastName: true } },
-        service: { select: { name: true } },
+      select: {
+        id: true,
+        clientName: true,
+        services: true,
+        startTime: true,
+        endTime: true,
+        date: true,
       },
     });
 
@@ -605,8 +614,8 @@ class ScheduleService {
         type: 'appointment',
         details: {
           appointmentId: apt.id,
-          clientName: `${apt.client.firstName} ${apt.client.lastName}`,
-          serviceName: apt.service.name,
+          clientName: apt.clientName,
+          services: apt.services,
           startTime: apt.startTime,
           endTime: apt.endTime,
         },

@@ -29,6 +29,7 @@ async function testAppointmentsAPI() {
       clientEmail: 'john@example.com',
       date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
       startTime: '10:00',
+      endTime: '11:00', // 60 minutes after start time
       totalDuration: 60,
       services: [
         {
@@ -39,7 +40,7 @@ async function testAppointmentsAPI() {
         }
       ],
       totalPrice: 50,
-      source: 'WEB' as const,
+      source: 'ONLINE' as const,
       notifications: [
         {
           type: 'confirmation' as const,

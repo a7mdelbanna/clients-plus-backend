@@ -448,7 +448,7 @@ export class FinancialService {
           originalAmount: data.originalAmount ? new Decimal(data.originalAmount) : null,
           taxAmount: data.taxAmount ? new Decimal(data.taxAmount) : null,
           taxRate: data.taxRate ? new Decimal(data.taxRate) : null,
-          attachments: data.attachments || null,
+          attachments: data.attachments || undefined,
           transactionDate: data.transactionDate || new Date(),
           currency: data.currency || account.currency,
           status: TransactionStatus.PENDING,
@@ -813,7 +813,7 @@ export class FinancialService {
         taxAmount: data.taxAmount ? new Decimal(data.taxAmount) : null,
         taxRate: data.taxRate ? new Decimal(data.taxRate) : null,
         netAmount: data.netAmount ? new Decimal(data.netAmount) : null,
-        attachments: data.attachments || null,
+        attachments: data.attachments || undefined,
         currency: data.currency || 'EGP',
         status: ExpenseStatus.DRAFT,
         createdBy
@@ -1241,7 +1241,7 @@ export class FinancialService {
       status: TransactionStatus.APPROVED,
       account: {
         accountType: {
-          in: ['CASH', 'CHECKING', 'SAVINGS']
+          in: ['CASH', 'CHECKING', 'SAVINGS'] as any[]
         }
       }
     };

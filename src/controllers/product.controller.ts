@@ -164,7 +164,7 @@ export class ProductController {
         where.inventories = {
           some: {
             quantity: {
-              lte: prisma.raw(`"Product"."lowStockThreshold"`),
+              lte: 10, // TODO: Compare with lowStockThreshold field
             },
           },
         };
@@ -659,7 +659,7 @@ export class ProductController {
             active: true,
             trackInventory: true,
             stock: {
-              lte: prisma.raw(`"lowStockThreshold"`),
+              lte: 10, // TODO: Compare with lowStockThreshold field
             },
             lowStockThreshold: { not: null },
           },

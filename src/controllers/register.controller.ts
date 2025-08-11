@@ -65,7 +65,7 @@ export class RegisterController {
       const registerData: OpenRegisterRequest = req.body;
       const register = await this.registerService.openRegister(req.user.companyId, {
         ...registerData,
-        openedBy: req.user.id,
+        openedBy: req.user.userId,
       });
 
       res.status(201).json({
@@ -138,7 +138,7 @@ export class RegisterController {
       
       const register = await this.registerService.closeRegister(req.user.companyId, id, {
         ...closeData,
-        closedBy: req.user.id,
+        closedBy: req.user.userId,
       });
 
       res.json({
@@ -253,7 +253,7 @@ export class RegisterController {
         id,
         {
           ...cashDropData,
-          recordedBy: req.user.id,
+          recordedBy: req.user.userId,
         }
       );
 
@@ -321,7 +321,7 @@ export class RegisterController {
         id,
         {
           ...adjustmentData,
-          adjustedBy: req.user.id,
+          adjustedBy: req.user.userId,
         }
       );
 
@@ -471,7 +471,7 @@ export class RegisterController {
         req.user.companyId,
         id,
         {
-          reconciledBy: req.user.id,
+          reconciledBy: req.user.userId,
           notes,
         }
       );

@@ -93,6 +93,7 @@ export class RegisterService {
             accountId: registerData.accountId,
             date: dateOnly,
             openingBalance: new Prisma.Decimal(registerData.openingBalance),
+            expectedClosing: new Prisma.Decimal(registerData.openingBalance), // Initialize to opening balance
             openedBy: registerData.openedBy,
             openedAt: new Date(),
             status: CashRegisterStatus.OPEN,
@@ -160,14 +161,13 @@ export class RegisterService {
         const updatedRegister = await tx.cashRegisterDay.update({
           where: { id: registerId },
           data: {
-            closingBalance: new Prisma.Decimal(closeData.actualCashAmount),
-            expectedCashAmount: new Prisma.Decimal(expectedCashAmount),
-            actualCashAmount: new Prisma.Decimal(closeData.actualCashAmount),
-            cashVariance: new Prisma.Decimal(cashVariance),
+            expectedClosing: new Prisma.Decimal(expectedCashAmount),
+            actualCash: new Prisma.Decimal(closeData.actualCashAmount),
+            variance: new Prisma.Decimal(cashVariance),
             status: CashRegisterStatus.CLOSED,
             closedBy: closeData.closedBy,
             closedAt: new Date(),
-            notes: closeData.notes,
+            closingNotes: closeData.notes,
           },
           include: {
             branch: true,
@@ -503,8 +503,8 @@ export class RegisterService {
                         (salesSummary.paymentMethods['CASH']?.amount || 0) + 
                         register.cashIn.toNumber() - 
                         register.cashOut.toNumber(),
-        actualClosing: register.actualCashAmount?.toNumber() || null,
-        variance: register.cashVariance?.toNumber() || null,
+        actualClosing: register.actualCash?.toNumber() || null,
+        variance: register.variance?.toNumber() || null,
       },
     };
   }
@@ -543,9 +543,9 @@ export class RegisterService {
             reconciledBy: reconcileData.reconciledBy,
             reconciledAt: new Date(),
             status: CashRegisterStatus.RECONCILED,
-            notes: reconcileData.notes 
-              ? (register.notes ? `${register.notes}; ${reconcileData.notes}` : reconcileData.notes)
-              : register.notes,
+            closingNotes: reconcileData.notes 
+              ? (register.closingNotes ? `${register.closingNotes}; ${reconcileData.notes}` : reconcileData.notes)
+              : register.closingNotes,
           },
           include: {
             branch: true,
@@ -554,8 +554,8 @@ export class RegisterService {
         });
 
         // If there's a cash variance, create an adjustment transaction
-        if (register.cashVariance && register.cashVariance.toNumber() !== 0) {
-          const variance = register.cashVariance.toNumber();
+        if (register.variance && register.variance.toNumber() !== 0) {
+          const variance = register.variance.toNumber();
           
           await tx.financialTransaction.create({
             data: {

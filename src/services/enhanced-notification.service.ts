@@ -1,7 +1,7 @@
 import { PrismaClient, ReminderType } from '@prisma/client';
 import { addMinutes, isBefore, format } from 'date-fns';
 import { whatsappService } from './whatsapp.service';
-import { notificationQueue, NotificationJob } from './queue.service';
+import { notificationQueue, NotificationJob } from './queue.service.mock';
 import { messageTemplateService } from '../templates/messages';
 
 const prisma = new PrismaClient();

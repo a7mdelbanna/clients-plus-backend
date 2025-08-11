@@ -616,7 +616,8 @@ export class PaymentService {
       throw new Error('Payment not found');
     }
 
-    if (![PaymentStatus.PENDING, PaymentStatus.FAILED, PaymentStatus.CANCELLED].includes(payment.status)) {
+    const deletableStatuses = ['PENDING', 'FAILED', 'CANCELLED'] as const;
+    if (!deletableStatuses.includes(payment.status as any)) {
       throw new Error('Only pending, failed, or cancelled payments can be deleted');
     }
 

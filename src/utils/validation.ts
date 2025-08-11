@@ -96,9 +96,11 @@ export const validateRequest = (schema: any) => {
           message: err.message,
           value: err.input,
         }));
-        return ResponseHelper.validationError(res, formattedErrors);
+        ResponseHelper.validationError(res, formattedErrors);
+        return;
       }
-      return ResponseHelper.serverError(res, 'Validation failed');
+      ResponseHelper.serverError(res, 'Validation failed');
+      return;
     }
   };
 };

@@ -32,7 +32,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -44,7 +45,7 @@ export class FinancialController {
 
       const account = await financialService.createAccount(accountData, userId);
 
-      return successResponse(res, 'Account created successfully', account, 201);
+      successResponse(res, 'Account created successfully', account, 201);
     } catch (error) {
       console.error('Create account error:', error);
       res.status(500).json(
@@ -102,7 +103,7 @@ export class FinancialController {
    * Get account by ID
    * GET /api/v1/finance/accounts/:id
    */
-  async getAccountById(req: AuthenticatedRequest, res: Response) {
+  async getAccountById(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { companyId } = req.user!;
@@ -110,9 +111,10 @@ export class FinancialController {
       const account = await financialService.getAccountById(id, companyId);
 
       if (!account) {
-        return res.status(404).json(
+        res.status(404).json(
           errorResponse('Account not found')
         );
+        return;
       }
 
       res.json(
@@ -130,11 +132,12 @@ export class FinancialController {
    * Update account
    * PUT /api/v1/finance/accounts/:id
    */
-  async updateAccount(req: AuthenticatedRequest, res: Response) {
+  async updateAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { id } = req.params;
@@ -209,7 +212,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -221,7 +225,7 @@ export class FinancialController {
 
       const transaction = await financialService.createTransaction(transactionData, userId);
 
-      return successResponse(res, 'Transaction created successfully', transaction, 201);
+      successResponse(res, 'Transaction created successfully', transaction, 201);
     } catch (error) {
       console.error('Create transaction error:', error);
       res.status(500).json(
@@ -338,7 +342,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -350,7 +355,7 @@ export class FinancialController {
 
       const transfer = await financialService.createTransfer(transferData, userId);
 
-      return successResponse(res, 'Transfer created successfully', transfer, 201);
+      successResponse(res, 'Transfer created successfully', transfer, 201);
     } catch (error) {
       console.error('Create transfer error:', error);
       res.status(500).json(
@@ -393,7 +398,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -405,7 +411,7 @@ export class FinancialController {
 
       const expense = await financialService.createExpense(expenseData, userId);
 
-      return successResponse(res, 'Expense created successfully', expense, 201);
+      successResponse(res, 'Expense created successfully', expense, 201);
     } catch (error) {
       console.error('Create expense error:', error);
       res.status(500).json(
@@ -521,7 +527,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -533,7 +540,7 @@ export class FinancialController {
 
       const budget = await financialService.createBudget(budgetData, userId);
 
-      return successResponse(res, 'Budget created successfully', budget, 201);
+      successResponse(res, 'Budget created successfully', budget, 201);
     } catch (error) {
       console.error('Create budget error:', error);
       res.status(500).json(
@@ -554,7 +561,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -568,7 +576,7 @@ export class FinancialController {
         userId
       );
 
-      return successResponse(res, 'Cash register opened successfully', cashRegister, 201);
+      successResponse(res, 'Cash register opened successfully', cashRegister, 201);
     } catch (error) {
       console.error('Open cash register error:', error);
       res.status(500).json(
@@ -581,11 +589,12 @@ export class FinancialController {
    * Close cash register
    * POST /api/v1/finance/cash-register/:id/close
    */
-  async closeCashRegister(req: AuthenticatedRequest, res: Response) {
+  async closeCashRegister(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { id } = req.params;
@@ -619,15 +628,16 @@ export class FinancialController {
    * Generate Profit & Loss report
    * GET /api/v1/finance/reports/profit-loss
    */
-  async getProfitLossReport(req: AuthenticatedRequest, res: Response) {
+  async getProfitLossReport(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { companyId } = req.user!;
       const { branchId, startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json(
+        res.status(400).json(
           errorResponse('Start date and end date are required')
         );
+        return;
       }
 
       const report = await financialService.generateProfitLossReport(
@@ -652,15 +662,16 @@ export class FinancialController {
    * Generate Cash Flow report
    * GET /api/v1/finance/reports/cash-flow
    */
-  async getCashFlowReport(req: AuthenticatedRequest, res: Response) {
+  async getCashFlowReport(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { companyId } = req.user!;
       const { branchId, startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return res.status(400).json(
+        res.status(400).json(
           errorResponse('Start date and end date are required')
         );
+        return;
       }
 
       const report = await financialService.generateCashFlowReport(
@@ -780,7 +791,8 @@ export class FinancialController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return errorResponse(res, 'Validation failed', 400, errors.array());
+        errorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { companyId, userId } = req.user!;
@@ -803,7 +815,7 @@ export class FinancialController {
         }
       });
 
-      return successResponse(res, 'Expense category created successfully', category, 201);
+      successResponse(res, 'Expense category created successfully', category, 201);
     } catch (error) {
       console.error('Create expense category error:', error);
       res.status(500).json(

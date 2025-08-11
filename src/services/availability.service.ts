@@ -917,7 +917,7 @@ export class AvailabilityService {
     // Find common available times across all service groups
     if (availableSlots.length > 1) {
       const firstGroupSlots = availableSlots[0].slots;
-      const commonTimes = firstGroupSlots.filter(slot1 =>
+      const commonTimes = firstGroupSlots.filter((slot1: any) =>
         availableSlots.slice(1).every(group =>
           group.slots.some((slot2: any) => 
             slot1.startTime === slot2.startTime && slot2.available

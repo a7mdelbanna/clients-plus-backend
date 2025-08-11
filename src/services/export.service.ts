@@ -823,7 +823,7 @@ export class ExportService {
   private async waitForPDFCompletion(filePath: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const checkFile = () => {
-        fs.access(filePath, fs.constants.F_OK, (err) => {
+        fs.access(filePath, fs.constants.F_OK, (err: any) => {
           if (!err) {
             setTimeout(resolve, 100); // Small delay to ensure file is fully written
           } else {

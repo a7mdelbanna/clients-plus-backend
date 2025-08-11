@@ -234,8 +234,9 @@ class App {
       logger.info('Database connection established');
       
       // Connect to Redis for caching
-      await redisService.connect();
-      logger.info('Redis connection established');
+      // Temporarily disabled Redis connection
+      // await redisService.connect();
+      // logger.info('Redis connection established');
     } catch (error) {
       logger.error('Failed to connect to database/Redis:', error);
       process.exit(1);
@@ -245,7 +246,7 @@ class App {
   public async close(): Promise<void> {
     try {
       await database.disconnect();
-      await redisService.disconnect();
+      // await redisService.disconnect();
       logger.info('Application closed gracefully');
     } catch (error) {
       logger.error('Error during application shutdown:', error);

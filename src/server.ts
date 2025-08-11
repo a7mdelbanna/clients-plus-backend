@@ -112,7 +112,12 @@ class ServerManager {
     // Handle unhandled promise rejections
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-      process.exit(1);
+      console.error('Full error details:', reason);
+      if (reason instanceof Error) {
+        console.error('Stack trace:', reason.stack);
+      }
+      // Don't exit immediately - let's see what happens
+      // process.exit(1);
     });
   }
 }

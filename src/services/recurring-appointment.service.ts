@@ -437,9 +437,8 @@ export class RecurringAppointmentService {
       // Instead of cancelling, we'll update the status and add a note
       const appointment = await this.appointmentService.updateAppointment(appointmentId, {
         status: AppointmentStatus.CANCELLED,
-        internalNotes: `Skipped: ${reason}`,
-        cancellationReason: reason
-      }, userId);
+        internalNotes: `Skipped: ${reason}`
+      } as any, userId);
       
       return {
         message: 'Occurrence skipped successfully',
@@ -750,6 +749,7 @@ export class RecurringAppointmentService {
           staffId: input.staffId,
           date,
           startTime: input.startTime,
+          endTime: this.calculateEndTime(input.startTime, input.totalDuration),
           totalDuration: input.totalDuration,
           services: input.services || [],
           totalPrice: input.totalPrice || 0,
@@ -957,7 +957,7 @@ export class RecurringAppointmentService {
     
     return Object.entries(grouped)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, data]) => ({ period, ...data }));
+      .map(([period, data]) => ({ period, ...(data as Record<string, any>) }));
   }
   
   private calculateEndTime(startTime: string, duration: number): string {

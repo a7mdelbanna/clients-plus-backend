@@ -931,7 +931,7 @@ export class AnalyticsService {
 
       const result: ServiceAnalytics = {
         totalServices: services.length,
-        activeServices: services.filter(s => s.active).length,
+        activeServices: services.filter((s: any) => s.active).length,
         servicePerformance,
         topServices,
         servicesByCategory
@@ -1102,13 +1102,13 @@ export class AnalyticsService {
       return acc;
     }, {} as Record<PaymentMethod, { amount: number; count: number }>);
 
-    const totalAmount = Object.values(methodCounts).reduce((sum, data) => sum + data.amount, 0);
+    const totalAmount = Object.values(methodCounts).reduce((sum, data) => sum + (data as any).amount, 0) as number;
 
     return Object.entries(methodCounts).map(([method, data]) => ({
       method: method as PaymentMethod,
-      amount: data.amount,
-      count: data.count,
-      percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0
+      amount: (data as any).amount,
+      count: (data as any).count,
+      percentage: totalAmount > 0 ? ((data as any).amount / totalAmount) * 100 : 0
     }));
   }
 
@@ -1240,8 +1240,8 @@ export class AnalyticsService {
 
     return Object.entries(hourCounts).map(([hour, data]) => ({
       hour: parseInt(hour),
-      count: data.count,
-      averageRevenue: data.count > 0 ? data.totalRevenue / data.count : 0
+      count: (data as any).count,
+      averageRevenue: (data as any).count > 0 ? (data as any).totalRevenue / (data as any).count : 0
     })).sort((a, b) => b.count - a.count);
   }
 

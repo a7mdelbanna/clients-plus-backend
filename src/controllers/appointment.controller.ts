@@ -719,11 +719,23 @@ export class AppointmentController {
       const { branchId, date, startTime, duration, staffId, resourceId, excludeAppointmentId } = validation.data;
       const companyId = req.user?.companyId!;
       
+      // Calculate endTime from startTime and duration
+      const calculateEndTime = (startTime: string, duration: number): string => {
+        const [hours, minutes] = startTime.split(':').map(Number);
+        const start = new Date();
+        start.setHours(hours, minutes, 0, 0);
+        start.setMinutes(start.getMinutes() + duration);
+        return start.getHours().toString().padStart(2, '0') + ':' + start.getMinutes().toString().padStart(2, '0');
+      };
+
+      const endTime = calculateEndTime(startTime, duration);
+
       const conflicts = await this.appointmentService.detectConflicts({
         companyId,
         branchId,
         date: new Date(date),
         startTime,
+        endTime,
         totalDuration: duration,
         staffId,
         resourceId,

@@ -209,14 +209,11 @@ export class SaleService {
           if (item.type === 'PRODUCT' && item.productId) {
             await tx.inventoryMovement.create({
               data: {
-                companyId,
                 productId: item.productId,
                 branchId: saleData.branchId,
                 type: 'OUT',
-                quantity: new Prisma.Decimal(item.quantity),
+                quantity: typeof item.quantity === 'number' ? item.quantity : (item.quantity as any).toNumber(),
                 unitCost: new Prisma.Decimal(0), // Will be updated based on product cost
-                totalValue: new Prisma.Decimal(0),
-                reference: saleNumber,
                 notes: `Sale: ${saleNumber}`,
               },
             });
@@ -432,14 +429,11 @@ export class SaleService {
             // Create inventory movement for returned stock
             await tx.inventoryMovement.create({
               data: {
-                companyId,
                 productId: saleItem.productId,
                 branchId: sale.branchId,
                 type: 'IN',
-                quantity: new Prisma.Decimal(refundItem.quantity),
+                quantity: typeof refundItem.quantity === 'number' ? refundItem.quantity : (refundItem.quantity as any),
                 unitCost: new Prisma.Decimal(0),
-                totalValue: new Prisma.Decimal(0),
-                reference: refundNumber,
                 notes: `Refund: ${refundNumber}`,
               },
             });

@@ -434,7 +434,14 @@ export class MonitoringService {
     threshold: number;
     timestamp: number;
   }>> {
-    const alerts = [];
+    const alerts: Array<{
+      type: 'warning' | 'critical';
+      message: string;
+      metric: string;
+      value: number;
+      threshold: number;
+      timestamp: number;
+    }> = [];
     const metrics = await this.getMetrics();
     const timestamp = Date.now();
 
