@@ -1,12 +1,13 @@
 import express from 'express';
 import { body, param, query } from 'express-validator';
 import { serviceController } from '../controllers/service.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticateToken, requireActiveCompany } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(authenticate);
+router.use(authenticateToken);
+router.use(requireActiveCompany);
 
 // Validation schemas
 const serviceValidation = [
@@ -209,6 +210,37 @@ router.post('/reorder', reorderValidation, serviceController.reorderServices);
 router.get('/pricing', serviceController.getServicePricing);
 router.post('/bulk-import', bulkImportValidation, serviceController.bulkImportServices);
 
+// Service category routes (must be before /:id to prevent matching)
+router.post('/categories', categoryValidation, serviceController.createCategory);
+router.get('/categories', serviceController.getCategories);
+
+router.put('/categories/:id', 
+  param('id').isString().trim().notEmpty().withMessage('Category ID is required'),
+  ...categoryValidation.map(validation => validation.optional()),
+  serviceController.updateCategory
+);
+
+router.delete('/categories/:id', 
+  param('id').isString().trim().notEmpty().withMessage('Category ID is required'),
+  serviceController.deleteCategory
+);
+
+// Health check (must be before /:id)
+router.get('/health', serviceController.healthCheck);
+
+// Services by staff (must be before /:id)
+router.get('/by-staff/:staffId', 
+  param('staffId').isString().trim().notEmpty().withMessage('Staff ID is required'),
+  serviceController.getServicesByStaff
+);
+
+// Services by category (must be before /:id)
+router.get('/by-category/:categoryId', 
+  param('categoryId').isString().trim().notEmpty().withMessage('Category ID is required'),
+  serviceController.getServicesByCategory
+);
+
+// Dynamic :id routes must come after all static routes
 router.get('/:id', 
   param('id').isString().trim().notEmpty().withMessage('Service ID is required'),
   serviceController.getService
@@ -255,34 +287,6 @@ router.post('/:id/staff',
   serviceController.assignStaffToService
 );
 
-// Services by staff
-router.get('/by-staff/:staffId', 
-  param('staffId').isString().trim().notEmpty().withMessage('Staff ID is required'),
-  serviceController.getServicesByStaff
-);
-
-// Services by category
-router.get('/by-category/:categoryId', 
-  param('categoryId').isString().trim().notEmpty().withMessage('Category ID is required'),
-  serviceController.getServicesByCategory
-);
-
-// Service category routes
-router.post('/categories', categoryValidation, serviceController.createCategory);
-router.get('/categories', serviceController.getCategories);
-
-router.put('/categories/:id', 
-  param('id').isString().trim().notEmpty().withMessage('Category ID is required'),
-  ...categoryValidation.map(validation => validation.optional()),
-  serviceController.updateCategory
-);
-
-router.delete('/categories/:id', 
-  param('id').isString().trim().notEmpty().withMessage('Category ID is required'),
-  serviceController.deleteCategory
-);
-
-// Health check
-router.get('/health', serviceController.healthCheck);
+// All routes with dynamic :id have been moved above
 
 export default router;

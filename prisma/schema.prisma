@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,83 +7,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================================
-// MULTI-TENANT ARCHITECTURE - COMPANIES
-// ============================================================================
-
 model Company {
-  id      String  @id @default(cuid())
-  name    String
-  email   String  @unique
-  phone   String?
-  website String?
-  address Json?
-  logo    String?
-
-  // Business settings
-  businessType       String?
-  taxId              String?
-  registrationNumber String?
-
-  // Subscription and billing
-  subscriptionPlan      SubscriptionPlan   @default(BASIC)
-  subscriptionStatus    SubscriptionStatus @default(ACTIVE)
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  phone                 String?
+  website               String?
+  address               Json?
+  logo                  String?
+  businessType          String?
+  taxId                 String?
+  registrationNumber    String?
+  subscriptionPlan      SubscriptionPlan       @default(BASIC)
+  subscriptionStatus    SubscriptionStatus     @default(ACTIVE)
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
-  billingCycle          BillingCycle       @default(MONTHLY)
-
-  // Company configuration
-  timezone   String @default("UTC")
-  currency   String @default("USD")
-  dateFormat String @default("MM/dd/yyyy")
-  timeFormat String @default("12h")
-
-  // Setup wizard tracking
-  setupCompleted Boolean @default(false)
-  setupProgress  Json? // Track which steps are completed: {businessInfo: true, branches: false, ...}
-  setupData      Json? // Store setup configuration data temporarily
-  teamSize       String? // Team size selection
-  selectedTheme  String? // Theme selection
-
-  // Status and metadata
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users             User[]
-  branches          Branch[]
-  clients           Client[]
-  services          Service[]
-  serviceCategories ServiceCategory[]
-  staff             Staff[]
-  appointments      Appointment[]
-  invoices          Invoice[]
-  payments          Payment[]
-  reports           Report[]
-  settings          CompanySetting[]
-  auditLogs         AuditLog[]
-  products          Product[]
-  productCategories ProductCategory[]
-  notificationLogs  NotificationLog[]
-  
-  // Financial relations
-  financialAccounts    FinancialAccount[]
+  billingCycle          BillingCycle           @default(MONTHLY)
+  timezone              String                 @default("UTC")
+  currency              String                 @default("USD")
+  dateFormat            String                 @default("MM/dd/yyyy")
+  timeFormat            String                 @default("12h")
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  selectedTheme         String?
+  setupCompleted        Boolean                @default(false)
+  setupData             Json?
+  setupProgress         Json?
+  teamSize              String?
+  accountTransfers      AccountTransfer[]
+  appointments          Appointment[]
+  auditLogs             AuditLog[]
+  branches              Branch[]
+  budgets               Budget[]
+  cashRegisterDays      CashRegisterDay[]
+  clients               Client[]
+  settings              CompanySetting[]
+  expenseCategories     ExpenseCategory[]
+  expenses              Expense[]
+  files                 File[]
+  financialAccounts     FinancialAccount[]
+  financialReports      FinancialReport[]
+  financialSettings     FinancialSettings?
   financialTransactions FinancialTransaction[]
-  accountTransfers     AccountTransfer[]
-  expenseCategories    ExpenseCategory[]
-  expenses             Expense[]
-  budgets              Budget[]
-  cashRegisterDays     CashRegisterDay[]
-  taxRates             TaxRate[]
-  financialReports     FinancialReport[]
-  financialSettings    FinancialSettings?
-  
-  // File storage
-  files                File[]
-  
-  // Sales relations
-  sales                Sale[]
+  invoices              Invoice[]
+  notificationLogs      NotificationLog[]
+  payments              Payment[]
+  productCategories     ProductCategory[]
+  products              Product[]
+  reports               Report[]
+  sales                 Sale[]
+  serviceCategories     ServiceCategory[]
+  services              Service[]
+  staff                 Staff[]
+  taxRates              TaxRate[]
+  users                 User[]
 
   @@index([subscriptionStatus])
   @@index([isActive])
@@ -95,50 +70,32 @@ model Company {
   @@map("companies")
 }
 
-// ============================================================================
-// USERS AND AUTHENTICATION
-// ============================================================================
-
 model User {
-  id        String  @id @default(cuid())
-  email     String  @unique
-  firstName String
-  lastName  String
-  phone     String?
-  avatar    String?
-  password  String
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Role and permissions
-  role        UserRole @default(USER)
-  permissions Json? // Custom permissions JSON
-
-  // Account status
-  isActive    Boolean   @default(true)
-  isVerified  Boolean   @default(false)
-  lastLoginAt DateTime?
-
-  // Password reset
-  resetToken       String?
-  resetTokenExpiry DateTime?
-
-  // Email verification
+  id                      String     @id @default(cuid())
+  email                   String     @unique
+  firstName               String
+  lastName                String
+  phone                   String?
+  avatar                  String?
+  password                String
+  companyId               String
+  role                    UserRole   @default(USER)
+  permissions             Json?
+  isActive                Boolean    @default(true)
+  isVerified              Boolean    @default(false)
+  lastLoginAt             DateTime?
+  resetToken              String?
+  resetTokenExpiry        DateTime?
   verificationToken       String?
   verificationTokenExpiry DateTime?
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  staffProfile    Staff?
-  createdClients  Client[]
-  createdInvoices Invoice[]
-  createdPayments Payment[]
-  auditLogs       AuditLog[]
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+  auditLogs               AuditLog[]
+  createdClients          Client[]
+  createdInvoices         Invoice[]
+  createdPayments         Payment[]
+  staffProfile            Staff?
+  company                 Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([email])
@@ -149,71 +106,43 @@ model User {
   @@map("users")
 }
 
-// ============================================================================
-// BRANCHES
-// ============================================================================
-
 model Branch {
-  id      String  @id @default(cuid())
-  name    String
-  address Json
-  phone   String?
-  email   String?
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch type and status
-  type   BranchType   @default(SECONDARY)
-  status BranchStatus @default(ACTIVE)
-
-  // Legacy fields for compatibility
-  isMain   Boolean @default(false) // Deprecated: use type instead
-  isActive Boolean @default(true) // Deprecated: use status instead
-
-  // Location and coordinates
-  coordinates Json? // {lat: number, lng: number}
-
-  // Contact information (expanded)
-  contact Json? // {phones: PhoneNumber[], email?: string}
-
-  // Operating hours (JSON structure for flexible scheduling)
-  operatingHours Json? // {[day: string]: DaySchedule}
-
-  // Branch assignments
-  services  String[] @default([]) // Service IDs available at branch
-  resources String[] @default([]) // Resource IDs at branch
-  staffIds  String[] @default([]) // Staff IDs assigned to branch
-
-  // Branch-specific settings
-  settings Json? // BranchSettings object
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  primaryStaff       Staff[]             @relation("StaffPrimaryBranch")
-  staffAssignments   StaffBranch[]       @relation("StaffBranchAssignments")
-  staffSchedules     StaffSchedule[]
-  appointments       Appointment[]
-  serviceBranches    ServiceBranch[]
-  inventories        Inventory[]
-  inventoryMovements InventoryMovement[]
-  invoices           Invoice[]
-  notificationLogs   NotificationLog[]
-  
-  // Financial relations
-  financialAccounts    FinancialAccount[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  address               Json
+  phone                 String?
+  email                 String?
+  companyId             String
+  isMain                Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  operatingHours        Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  contact               Json?
+  coordinates           Json?
+  resources             String[]               @default([])
+  services              String[]               @default([])
+  settings              Json?
+  staffIds              String[]               @default([])
+  status                BranchStatus           @default(ACTIVE)
+  type                  BranchType             @default(SECONDARY)
+  appointments          Appointment[]
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  budgets               Budget[]
+  cashRegisterDays      CashRegisterDay[]
+  expenses              Expense[]
+  financialAccounts     FinancialAccount[]
+  financialReports      FinancialReport[]
   financialTransactions FinancialTransaction[]
-  expenses             Expense[]
-  budgets              Budget[]
-  cashRegisterDays     CashRegisterDay[]
-  financialReports     FinancialReport[]
-  
-  // Sales relations
-  sales                Sale[]
+  inventories           Inventory[]
+  inventoryMovements    InventoryMovement[]
+  invoices              Invoice[]
+  notificationLogs      NotificationLog[]
+  sales                 Sale[]
+  serviceBranches       ServiceBranch[]
+  primaryStaff          Staff[]                @relation("StaffPrimaryBranch")
+  staffAssignments      StaffBranch[]          @relation("StaffBranchAssignments")
+  staffSchedules        StaffSchedule[]
 
   @@index([companyId])
   @@index([type])
@@ -224,56 +153,34 @@ model Branch {
   @@map("branches")
 }
 
-// ============================================================================
-// CLIENTS
-// ============================================================================
-
 model Client {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Basic information
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  dateOfBirth DateTime?
-  gender      Gender?
-
-  // Address information
-  address Json?
-
-  // Client preferences
+  id                     String              @id @default(cuid())
+  companyId              String
+  firstName              String
+  lastName               String
+  email                  String?
+  phone                  String?
+  dateOfBirth            DateTime?
+  gender                 Gender?
+  address                Json?
   preferredLanguage      String?
   preferredCommunication CommunicationMethod @default(EMAIL)
-
-  // Medical/service history
-  allergies         String?
-  medicalConditions String?
-  notes             String?
-
-  // Marketing and preferences
-  marketingConsent    Boolean @default(false)
-  reminderPreferences Json?
-
-  // Status
-  status   ClientStatus @default(ACTIVE)
-  isActive Boolean      @default(true)
-
-  // Metadata
-  createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  appointments Appointment[]
-  invoices     Invoice[]
-  payments     Payment[]
-  sales        Sale[]
+  allergies              String?
+  medicalConditions      String?
+  notes                  String?
+  marketingConsent       Boolean             @default(false)
+  reminderPreferences    Json?
+  status                 ClientStatus        @default(ACTIVE)
+  isActive               Boolean             @default(true)
+  createdById            String
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  appointments           Appointment[]
+  company                Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy              User                @relation(fields: [createdById], references: [id])
+  invoices               Invoice[]
+  payments               Payment[]
+  sales                  Sale[]
 
   @@index([companyId])
   @@index([email])
@@ -286,109 +193,71 @@ model Client {
   @@map("clients")
 }
 
-// ============================================================================
-// STAFF
-// ============================================================================
-
 model Staff {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Link to user account (optional for external staff)
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id])
-
-  // Basic information - Enhanced to match Firebase schema
-  name           String // Primary name (Arabic support)
-  nameAr         String? // Arabic name variant
-  firstName      String?
-  lastName       String?
-  middleName     String?
-  title          String? // Job title
-  specialization String? // What customers see during online booking
-  email          String?
-  phone          String?
-  mobile         String? // Additional mobile number
-  avatar         String?
-  image          String? // Profile image URL (Firebase compatibility)
-  bio            String? // Staff bio/description
-
-  // Employment details
-  employeeId          String?
-  positionId          String? // Reference to position for filtering
-  position            String? // Keep for backward compatibility
-  department          String?
-  employmentDate      DateTime? // Hire date
-  registrationEndDate DateTime? // Termination date
-
-  // Multi-branch support - Enhanced
-  primaryBranchId String? // Primary branch (optional)
-  primaryBranch   Branch?       @relation("StaffPrimaryBranch", fields: [primaryBranchId], references: [id])
-  branches        StaffBranch[] // Many-to-many branch assignments
-
-  // Access & Authentication
-  accessLevel  AccessLevel  @default(EMPLOYEE)
-  accessStatus AccessStatus @default(NOT_GRANTED)
-  inviteSentAt DateTime?
-  lastLoginAt  DateTime?
-
-  // Professional details
-  specializations String[]
-  certifications  Json?
-  qualifications  String?
-
-  // Schedule Management - Enhanced
-  isScheduled       Boolean   @default(false)
-  scheduleStartDate DateTime? // When the schedule starts
-  scheduledUntil    DateTime? // When the schedule ends
-  defaultTemplate   String? // Reference to schedule template
-  workingHours      Json? // Weekly working hours structure
-
-  // Online Booking Settings
-  onlineBookingEnabled Boolean @default(false)
-  onlineBookingProfile Json? // Profile description, show rating, etc.
-  onlineBookingRules   Json? // Prepayment, any specialist rules
-  schedulingTime       String? // 'general' | 'personal'
-
-  // Personal Information
-  citizenship String?
-  gender      Gender?
-
-  // Documents
-  passport        String?
-  taxId           String? // Taxpayer Identification Number
-  insuranceNumber String?
-
-  // Commission and pay
-  commissionRate Decimal? @db.Decimal(5, 4)
-  hourlyRate     Decimal? @db.Decimal(8, 2)
-
-  // Display and ordering
-  color        String? // For calendar display
-  displayOrder Int? // For staff ordering in UI
-  order        Int     @default(0) // Firebase-style order field
-
-  // Services count cache
-  servicesCount Int @default(0)
-
-  // Status - Enhanced
-  status   StaffStatus @default(ACTIVE)
-  isActive Boolean     @default(true)
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String? // User who created this staff member
-
-  // Relations
-  appointments Appointment[]
-  services     StaffService[]
-  timeOffs     StaffTimeOff[]
-  schedules    StaffSchedule[]
-  sales        Sale[]
+  id                   String          @id @default(cuid())
+  companyId            String
+  userId               String?         @unique
+  firstName            String?
+  lastName             String?
+  email                String?
+  phone                String?
+  avatar               String?
+  employeeId           String?
+  position             String?
+  department           String?
+  specializations      String[]
+  certifications       Json?
+  qualifications       String?
+  bio                  String?
+  commissionRate       Decimal?        @db.Decimal(5, 4)
+  hourlyRate           Decimal?        @db.Decimal(8, 2)
+  status               StaffStatus     @default(ACTIVE)
+  isActive             Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  accessLevel          AccessLevel     @default(EMPLOYEE)
+  accessStatus         AccessStatus    @default(NOT_GRANTED)
+  citizenship          String?
+  color                String?
+  createdBy            String?
+  defaultTemplate      String?
+  displayOrder         Int?
+  employmentDate       DateTime?
+  gender               Gender?
+  insuranceNumber      String?
+  inviteSentAt         DateTime?
+  isScheduled          Boolean         @default(false)
+  lastLoginAt          DateTime?
+  middleName           String?
+  name                 String
+  onlineBookingEnabled Boolean         @default(false)
+  onlineBookingProfile Json?
+  onlineBookingRules   Json?
+  passport             String?
+  positionId           String?
+  primaryBranchId      String?
+  registrationEndDate  DateTime?
+  scheduleStartDate    DateTime?
+  scheduledUntil       DateTime?
+  schedulingTime       String?
+  servicesCount        Int             @default(0)
+  specialization       String?
+  taxId                String?
+  workingHours         Json?
+  image                String?
+  mobile               String?
+  nameAr               String?
+  order                Int             @default(0)
+  title                String?
+  appointments         Appointment[]
+  sales                Sale[]
+  company              Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  primaryBranch        Branch?         @relation("StaffPrimaryBranch", fields: [primaryBranchId], references: [id])
+  user                 User?           @relation(fields: [userId], references: [id])
+  branches             StaffBranch[]
+  schedules            StaffSchedule[]
+  services             StaffService[]
+  timeOffs             StaffTimeOff[]
 
   @@index([companyId])
   @@index([primaryBranchId])
@@ -405,74 +274,40 @@ model Staff {
   @@map("staff")
 }
 
-// ============================================================================
-// SERVICES
-// ============================================================================
-
 model Service {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Category relationship
-  categoryId String?
-  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
-
-  // Basic information - Enhanced to match Firebase
-  name          String // Primary name (Arabic)
-  nameAr        String? // Deprecated - kept for backward compatibility
+  id            String           @id @default(cuid())
+  companyId     String
+  name          String
   description   String?
+  color         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  active        Boolean          @default(true)
+  apiId         String?
+  autoDeduction Boolean          @default(false)
+  branchId      String?
+  branchIds     String[]         @default([])
+  categoryId    String?
+  createdBy     String?
   descriptionAr String?
-
-  // Multi-language support
-  translations Json? // {en: string, fr: string, [key: string]: string}
-
-  // Branch assignments - Enhanced multi-branch support
-  branchId  String? // Deprecated - kept for backward compatibility
-  branchIds String[] @default([]) // Multiple branch assignments
-
-  // Pricing - Enhanced pricing structure
-  startingPrice Decimal @db.Decimal(10, 2) // Base price
-  priceRange    Json? // {min: number, max: number}
-
-  // Duration - Enhanced structure
-  duration Json // {hours: number, minutes: number}
-
-  // Service type and API integration
-  type  ServiceType @default(APPOINTMENT)
-  apiId String? // External API integration
-
-  // Online booking settings - Enhanced
-  onlineBooking Json // Complete online booking configuration
-
-  // Images and media
-  images Json? // Array of image objects with metadata
-
-  // Advanced service options
-  invoiceName   String? // Custom invoice name
-  taxSystem     String? // Tax system configuration
-  vat           Decimal? @db.Decimal(5, 4) // VAT rate
-  followUpDays  Int? // Follow-up period in days
-  autoDeduction Boolean  @default(false) // Automatic inventory deduction
-
-  // Display and ordering
-  color String? // For calendar and UI display
-  order Int     @default(0) // Display order
-
-  // Status
-  active Boolean @default(true)
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String? // User who created the service
-
-  // Relations
-  branches      ServiceBranch[]
-  staffServices StaffService[]
+  followUpDays  Int?
+  images        Json?
+  invoiceName   String?
+  nameAr        String?
+  onlineBooking Json
+  order         Int              @default(0)
+  priceRange    Json?
+  startingPrice Decimal          @db.Decimal(10, 2)
+  taxSystem     String?
+  translations  Json?
+  type          ServiceType      @default(APPOINTMENT)
+  vat           Decimal?         @db.Decimal(5, 4)
+  duration      Json
   saleItems     SaleItem[]
+  branches      ServiceBranch[]
+  category      ServiceCategory? @relation(fields: [categoryId], references: [id])
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  staffServices StaffService[]
 
   @@index([companyId])
   @@index([categoryId])
@@ -486,40 +321,24 @@ model Service {
 }
 
 model ServiceCategory {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch assignment for multi-branch support
-  branchId String?
-
-  // Basic information
-  name   String
-  nameAr String?
-
-  // Online booking customization
-  useOnlineBookingName Boolean @default(false)
+  id                   String    @id @default(cuid())
+  companyId            String
+  branchId             String?
+  name                 String
+  nameAr               String?
+  useOnlineBookingName Boolean   @default(false)
   onlineBookingName    String?
-
-  // Category metadata
-  servicesCount Int     @default(0) // Cached count
-  description   String?
-  color         String? // For UI display
-  icon          String? // Icon identifier
-  order         Int     @default(0) // Display order
-
-  // Status
-  active Boolean @default(true)
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String? // User who created the category
-
-  // Relations
-  services Service[]
+  servicesCount        Int       @default(0)
+  description          String?
+  color                String?
+  icon                 String?
+  order                Int       @default(0)
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdBy            String?
+  company              Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  services             Service[]
 
   @@index([companyId])
   @@index([branchId])
@@ -528,36 +347,27 @@ model ServiceCategory {
   @@map("service_categories")
 }
 
-// ============================================================================
-// JUNCTION TABLES
-// ============================================================================
-
 model ServiceBranch {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   serviceId String
   branchId  String
-
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  isActive Boolean @default(true)
+  isActive  Boolean @default(true)
+  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, branchId])
   @@map("service_branches")
 }
 
-// Staff-Branch Junction Table for Multi-Branch Support
 model StaffBranch {
-  id       String @id @default(cuid())
-  staffId  String
-  branchId String
-
-  staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  branch Branch @relation("StaffBranchAssignments", fields: [branchId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  staffId   String
+  branchId  String
   isPrimary Boolean  @default(false)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  branch    Branch   @relation("StaffBranchAssignments", fields: [branchId], references: [id], onDelete: Cascade)
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, branchId])
   @@index([staffId])
@@ -566,62 +376,39 @@ model StaffBranch {
 }
 
 model StaffService {
-  id        String @id @default(cuid())
-  staffId   String
-  serviceId String
-
-  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  // Custom pricing and duration for this staff member
-  price    Decimal? @db.Decimal(10, 2) // Override service price
-  duration Json? // Override service duration {hours: number, minutes: number}
-
-  // Bill of materials reference
+  id              String   @id @default(cuid())
+  staffId         String
+  serviceId       String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   billOfMaterials String?
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  duration        Json?
+  price           Decimal? @db.Decimal(10, 2)
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staff           Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, serviceId])
   @@map("staff_services")
 }
 
-// Staff Schedule Model for Detailed Schedule Management
 model StaffSchedule {
-  id String @id @default(cuid())
-
-  staffId String
-  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  // Date range for this schedule
-  startDate DateTime
-  endDate   DateTime? // Null for indefinite
-
-  // Day of week schedule (0 = Sunday, 6 = Saturday)
-  dayOfWeek Int
-
-  // Time slots
-  startTime String // "09:00"
-  endTime   String // "17:00"
-
-  // Break times
-  breaks Json? // Array of {start: "12:00", end: "13:00"}
-
-  // Schedule type
-  type      ScheduleType @default(REGULAR)
-  isWorking Boolean      @default(true)
-
-  // Override specific dates
-  overrideDate DateTime? // For one-time schedule changes
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String       @id @default(cuid())
+  staffId      String
+  startDate    DateTime
+  endDate      DateTime?
+  dayOfWeek    Int
+  startTime    String
+  endTime      String
+  breaks       Json?
+  type         ScheduleType @default(REGULAR)
+  isWorking    Boolean      @default(true)
+  overrideDate DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  branchId     String
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, branchId, dayOfWeek])
   @@index([staffId])
@@ -631,98 +418,63 @@ model StaffSchedule {
   @@map("staff_schedules")
 }
 
-// ============================================================================
-// APPOINTMENTS
-// ============================================================================
-
 model Appointment {
-  id         String  @id @default(cuid())
-  companyId  String
-  branchId   String
-  clientId   String
-  staffId    String?
-  resourceId String? // For resource-based appointments
-
-  // Client Information (denormalized for performance)
-  clientName  String
-  clientPhone String
-  clientEmail String?
-  isNewClient Boolean @default(false)
-
-  // Staff Information (denormalized for performance)
-  staffName String?
-
-  // Scheduling
-  date          DateTime
-  startTime     String // "09:00"
-  endTime       String // "10:30"
-  duration      Int? // in minutes (legacy)
-  totalDuration Int // in minutes
-
-  // Services - Enhanced to support multiple services per appointment
-  services   Json // Array of service objects with details
-  categoryId String?
-  totalPrice Decimal @db.Decimal(10, 2)
-
-  // Status
-  status        AppointmentStatus @default(PENDING)
-  paymentStatus PaymentStatus     @default(PENDING)
-
-  // Recurring
-  isRecurring      Boolean @default(false)
-  recurringPattern Json? // Recurring configuration
-  recurringGroupId String? // Links recurring appointments
-  repeat           Json? // Legacy Firebase repeat structure
-  repeatGroupId    String? // Legacy Firebase field
-
-  // Details
-  title         String?
-  notes         String?
-  internalNotes String? // staff-only notes
-  color         String?
-
-  // Pricing
-  startingPrice Decimal? @db.Decimal(10, 2)
-  prepaidAmount Decimal? @db.Decimal(10, 2)
-  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
-  discount      Decimal? @db.Decimal(10, 2)
-
-  // Resources
-  resources Json? // Array of resource objects
-
-  // Metadata
-  source         AppointmentSource @default(DASHBOARD)
-  bookingLinkId  String? // if booked online
-  createdBy      String?
-  lastModifiedBy String?
-
-  // Cancellation Info
-  cancelledBy        String? // 'client' | 'staff' | 'system'
-  cancelledAt        DateTime?
+  id                 String                @id @default(cuid())
+  companyId          String
+  title              String?
+  startTime          String
+  endTime            String
+  clientId           String
+  staffId            String?
+  branchId           String
+  notes              String?
+  internalNotes      String?
+  status             AppointmentStatus     @default(PENDING)
+  reminderSent       Boolean               @default(false)
   cancellationReason String?
-
-  // Reschedule Info
-  rescheduledTo String? // ID of the new appointment
-  rescheduledAt DateTime?
-
-  // Notifications
-  notifications Json? // Array of notification objects
-  reminderSent  Boolean @default(false)
-
-  // Change tracking
-  changeHistory Json? // Array of change history objects
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  company   Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch    Branch                @relation(fields: [branchId], references: [id])
-  client    Client                @relation(fields: [clientId], references: [id])
-  staff     Staff?                @relation(fields: [staffId], references: [id])
-  invoices  AppointmentInvoice[]
-  reminders AppointmentReminder[]
-  invoice   Invoice?
+  cancelledAt        DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  bookingLinkId      String?
+  cancelledBy        String?
+  categoryId         String?
+  changeHistory      Json?
+  clientEmail        String?
+  clientName         String
+  clientPhone        String
+  color              String?
+  createdBy          String?
+  date               DateTime
+  discount           Decimal?              @db.Decimal(10, 2)
+  duration           Int?
+  isNewClient        Boolean               @default(false)
+  isRecurring        Boolean               @default(false)
+  lastModifiedBy     String?
+  notifications      Json?
+  paidAmount         Decimal               @default(0) @db.Decimal(10, 2)
+  paymentStatus      PaymentStatus         @default(PENDING)
+  prepaidAmount      Decimal?              @db.Decimal(10, 2)
+  recurringGroupId   String?
+  recurringPattern   Json?
+  repeat             Json?
+  repeatGroupId      String?
+  rescheduledAt      DateTime?
+  rescheduledTo      String?
+  resourceId         String?
+  resources          Json?
+  services           Json
+  source             AppointmentSource     @default(DASHBOARD)
+  staffName          String?
+  startingPrice      Decimal?              @db.Decimal(10, 2)
+  totalDuration      Int
+  totalPrice         Decimal               @db.Decimal(10, 2)
+  invoices           AppointmentInvoice[]
+  reminders          AppointmentReminder[]
+  branch             Branch                @relation(fields: [branchId], references: [id])
+  client             Client                @relation(fields: [clientId], references: [id])
+  company            Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  staff              Staff?                @relation(fields: [staffId], references: [id])
+  invoice            Invoice?
 
   @@index([companyId, branchId, date])
   @@index([clientId])
@@ -743,24 +495,16 @@ model Appointment {
 model AppointmentReminder {
   id            String       @id @default(cuid())
   appointmentId String
-  type          ReminderType
   scheduledFor  DateTime
   sent          Boolean      @default(false)
   sentAt        DateTime?
   error         String?
-
-  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type          ReminderType
+  appointment   Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
   @@index([appointmentId])
   @@index([scheduledFor, sent])
   @@map("appointment_reminders")
-}
-
-enum ReminderType {
-  SMS
-  EMAIL
-  WHATSAPP
-  PUSH
 }
 
 model AppointmentWaitlist {
@@ -780,79 +524,49 @@ model AppointmentWaitlist {
   @@map("appointment_waitlist")
 }
 
-// ============================================================================
-// INVOICING AND PAYMENTS
-// ============================================================================
-
 model Invoice {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch relationship (required)
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-
-  // Invoice details
-  invoiceNumber String
-  title         String?
-
-  // Client relationship
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
-
-  // Optional appointment relationship
-  appointmentId String?      @unique
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-
-  // Dates
-  invoiceDate DateTime @default(now())
-  issueDate   DateTime @default(now()) // Deprecated: use invoiceDate
-  dueDate     DateTime
-
-  // Financial details
-  subtotal       Decimal  @default(0) @db.Decimal(10, 2)
-  taxRate        Decimal  @default(0) @db.Decimal(5, 4)
-  taxAmount      Decimal  @default(0) @db.Decimal(10, 2)
-  discountAmount Decimal  @default(0) @db.Decimal(10, 2)
-  discountType   String? // PERCENTAGE, FIXED
-  discountValue  Decimal? @db.Decimal(10, 2)
-  total          Decimal  @default(0) @db.Decimal(10, 2)
-
-  // Payment tracking
-  status        InvoiceStatus @default(DRAFT)
-  paymentStatus PaymentStatus @default(PENDING)
-  paidAmount    Decimal       @default(0) @db.Decimal(10, 2)
-  balanceAmount Decimal       @default(0) @db.Decimal(10, 2) // Calculated: total - paidAmount
-
-  // Currency and localization
-  currency String @default("EGP")
-
-  // Additional information
+  id              String               @id @default(cuid())
+  companyId       String
+  invoiceNumber   String
+  title           String?
+  clientId        String
+  issueDate       DateTime             @default(now())
+  dueDate         DateTime
+  subtotal        Decimal              @default(0) @db.Decimal(10, 2)
+  taxRate         Decimal              @default(0) @db.Decimal(5, 4)
+  taxAmount       Decimal              @default(0) @db.Decimal(10, 2)
+  discountAmount  Decimal              @default(0) @db.Decimal(10, 2)
+  total           Decimal              @default(0) @db.Decimal(10, 2)
+  status          InvoiceStatus        @default(DRAFT)
+  paidAmount      Decimal              @default(0) @db.Decimal(10, 2)
   notes           String?
-  internalNotes   String?
   terms           String?
+  createdById     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  appointmentId   String?              @unique
+  balanceAmount   Decimal              @default(0) @db.Decimal(10, 2)
+  branchId        String
+  cancelledAt     DateTime?
+  currency        String               @default("EGP")
+  discountType    String?
+  discountValue   Decimal?             @db.Decimal(10, 2)
+  internalNotes   String?
+  invoiceDate     DateTime             @default(now())
+  paidAt          DateTime?
+  paymentStatus   PaymentStatus        @default(PENDING)
+  sentAt          DateTime?
   termsConditions String?
-
-  // Status tracking
-  sentAt      DateTime?
-  viewedAt    DateTime?
-  paidAt      DateTime?
-  cancelledAt DateTime?
-
-  // Metadata
-  createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  items        InvoiceItem[]
-  appointments AppointmentInvoice[]
-  payments     Payment[]
-  sales        Sale[]
+  viewedAt        DateTime?
+  appointments    AppointmentInvoice[]
+  items           InvoiceItem[]
+  appointment     Appointment?         @relation(fields: [appointmentId], references: [id])
+  branch          Branch               @relation(fields: [branchId], references: [id])
+  client          Client               @relation(fields: [clientId], references: [id])
+  company         Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy       User                 @relation(fields: [createdById], references: [id])
+  payments        Payment[]
+  sales           Sale[]
 
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
@@ -873,26 +587,18 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id String @id @default(cuid())
-
-  // Invoice relationship
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  // Item type and reference
-  type   String // SERVICE, PRODUCT, CUSTOM
-  itemId String? // Reference to service/product ID
-
-  // Item details
+  id          String   @id @default(cuid())
+  invoiceId   String
   description String
   quantity    Decimal  @db.Decimal(10, 3)
   unitPrice   Decimal  @db.Decimal(10, 2)
-  discount    Decimal? @db.Decimal(10, 2) // Item-level discount
-  taxRate     Decimal? @db.Decimal(5, 4) // Item-level tax rate
   total       Decimal  @db.Decimal(10, 2)
-
-  // Ordering
-  order Int @default(0)
+  order       Int      @default(0)
+  discount    Decimal? @db.Decimal(10, 2)
+  itemId      String?
+  taxRate     Decimal? @db.Decimal(5, 4)
+  type        String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([type])
@@ -901,54 +607,37 @@ model InvoiceItem {
 }
 
 model AppointmentInvoice {
-  id String @id @default(cuid())
-
+  id            String      @id @default(cuid())
   appointmentId String
+  invoiceId     String
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice       Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@unique([appointmentId, invoiceId])
   @@map("appointment_invoices")
 }
 
 model Payment {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Payment details
-  amount        Decimal       @db.Decimal(10, 2)
-  paymentDate   DateTime      @default(now())
-  paymentMethod PaymentMethod
-  reference     String? // Payment reference number
-
-  // Relationships
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
-
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id])
-
-  // Payment processing
+  id             String        @id @default(cuid())
+  companyId      String
+  amount         Decimal       @db.Decimal(10, 2)
+  paymentDate    DateTime      @default(now())
+  paymentMethod  PaymentMethod
+  clientId       String
+  invoiceId      String
   transactionId  String?
   paymentGateway String?
+  status         PaymentStatus @default(PENDING)
+  notes          String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   processedAt    DateTime?
-
-  // Status
-  status PaymentStatus @default(PENDING)
-
-  // Additional information
-  notes String?
-
-  // Metadata
-  createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  reference      String?
+  client         Client        @relation(fields: [clientId], references: [id])
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
 
   @@index([companyId])
   @@index([clientId])
@@ -958,46 +647,32 @@ model Payment {
   @@map("payments")
 }
 
-// ============================================================================
-// STAFF MANAGEMENT
-// ============================================================================
-
 model StaffTimeOff {
-  id String @id @default(cuid())
-
-  staffId String
-  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-
+  id        String        @id @default(cuid())
+  staffId   String
   startDate DateTime
   endDate   DateTime
   type      TimeOffType
   reason    String?
   status    TimeOffStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  staff     Staff         @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@index([staffId])
   @@index([startDate])
   @@map("staff_time_offs")
 }
 
-// ============================================================================
-// COMPANY SETTINGS AND CONFIGURATION
-// ============================================================================
-
 model CompanySetting {
-  id String @id @default(cuid())
-
+  id        String   @id @default(cuid())
   companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  key      String
-  value    Json
-  category String? // e.g., 'general', 'booking', 'notifications'
-
+  key       String
+  value     Json
+  category  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key])
   @@index([companyId])
@@ -1005,62 +680,39 @@ model CompanySetting {
   @@map("company_settings")
 }
 
-// ============================================================================
-// REPORTING AND ANALYTICS
-// ============================================================================
-
 model Report {
-  id String @id @default(cuid())
-
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  name       String
-  type       ReportType
-  parameters Json? // Report parameters and filters
-  data       Json? // Cached report data
-
-  // Scheduling
-  isScheduled Boolean @default(false)
-  schedule    String? // Cron expression
-
-  // Status
-  status ReportStatus @default(DRAFT)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String       @id @default(cuid())
+  companyId   String
+  name        String
+  type        ReportType
+  parameters  Json?
+  data        Json?
+  isScheduled Boolean      @default(false)
+  schedule    String?
+  status      ReportStatus @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([type])
   @@map("reports")
 }
 
-// ============================================================================
-// AUDIT LOGS
-// ============================================================================
-
 model AuditLog {
-  id String @id @default(cuid())
-
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id])
-
-  action     String // e.g., 'CREATE', 'UPDATE', 'DELETE'
-  resource   String // e.g., 'appointment', 'client', 'invoice'
-  resourceId String? // ID of the affected resource
-
-  // Change tracking
-  oldValues Json?
-  newValues Json?
-
-  // Additional context
-  ipAddress String?
-  userAgent String?
-
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
 
   @@index([companyId])
   @@index([userId])
@@ -1069,9 +721,662 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// ============================================================================
-// ENUMS
-// ============================================================================
+model Product {
+  id                String              @id @default(cuid())
+  companyId         String
+  name              String
+  nameAr            String?
+  description       String?
+  descriptionAr     String?
+  sku               String?
+  barcode           String?
+  categoryId        String?
+  price             Decimal             @db.Decimal(10, 2)
+  cost              Decimal?            @db.Decimal(10, 2)
+  taxRate           Decimal             @default(0) @db.Decimal(5, 4)
+  trackInventory    Boolean             @default(true)
+  stock             Int                 @default(0)
+  lowStockThreshold Int?
+  variants          Json?
+  images            String[]
+  active            Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  inventories       Inventory[]
+  movements         InventoryMovement[]
+  category          ProductCategory?    @relation(fields: [categoryId], references: [id])
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  saleItems         SaleItem[]
+
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([sku])
+  @@index([barcode])
+  @@index([active])
+  @@map("products")
+}
+
+model ProductCategory {
+  id          String            @id @default(cuid())
+  companyId   String
+  name        String
+  nameAr      String?
+  description String?
+  parentId    String?
+  order       Int               @default(0)
+  color       String?
+  icon        String?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent      ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@index([companyId])
+  @@index([parentId])
+  @@index([active])
+  @@map("product_categories")
+}
+
+model Inventory {
+  id               String    @id @default(cuid())
+  productId        String
+  branchId         String
+  quantity         Int       @default(0)
+  reservedQuantity Int       @default(0)
+  lastRestocked    DateTime?
+  lastCountDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  branch           Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@index([productId])
+  @@index([branchId])
+  @@map("inventories")
+}
+
+model InventoryMovement {
+  id            String                @id @default(cuid())
+  productId     String
+  branchId      String
+  type          InventoryMovementType
+  quantity      Int
+  reference     String?
+  referenceType String?
+  notes         String?
+  unitCost      Decimal?              @db.Decimal(10, 2)
+  performedBy   String?
+  createdAt     DateTime              @default(now())
+  branch        Branch                @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([branchId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_movements")
+}
+
+model NotificationLog {
+  id             String               @id @default(cuid())
+  jobId          String               @unique
+  queueJobId     String?
+  type           NotificationType
+  companyId      String
+  branchId       String?
+  recipient      String
+  recipientPhone String?
+  recipientEmail String?
+  status         NotificationStatus   @default(PENDING)
+  priority       NotificationPriority @default(NORMAL)
+  result         String?
+  error          String?
+  scheduledFor   DateTime?
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  branch         Branch?              @relation(fields: [branchId], references: [id])
+  company        Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([type])
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([createdAt])
+  @@map("notification_logs")
+}
+
+model FinancialAccount {
+  id                    String                 @id @default(cuid())
+  companyId             String
+  branchId              String?
+  name                  String
+  accountNumber         String?
+  accountType           FinancialAccountType
+  subType               String?
+  balance               Decimal                @default(0) @db.Decimal(15, 2)
+  initialBalance        Decimal                @default(0) @db.Decimal(15, 2)
+  availableBalance      Decimal                @default(0) @db.Decimal(15, 2)
+  currency              String                 @default("EGP")
+  creditLimit           Decimal?               @db.Decimal(15, 2)
+  minimumBalance        Decimal?               @db.Decimal(15, 2)
+  bankName              String?
+  bankBranch            String?
+  iban                  String?
+  swiftCode             String?
+  routingNumber         String?
+  isDefault             Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  allowOverdraft        Boolean                @default(false)
+  lastReconciledDate    DateTime?
+  lastReconciledBalance Decimal?               @db.Decimal(15, 2)
+  description           String?
+  tags                  String[]               @default([])
+  notes                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  createdBy             String?
+  fromTransfers         AccountTransfer[]      @relation("FromAccount")
+  toTransfers           AccountTransfer[]      @relation("ToAccount")
+  budgets               Budget[]
+  cashRegisterDays      CashRegisterDay[]
+  branch                Branch?                @relation(fields: [branchId], references: [id])
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transactions          FinancialTransaction[]
+
+  @@unique([companyId, accountNumber])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([accountType])
+  @@index([isActive])
+  @@index([currency])
+  @@map("financial_accounts")
+}
+
+model FinancialTransaction {
+  id               String                   @id @default(cuid())
+  companyId        String
+  accountId        String
+  branchId         String?
+  type             FinancialTransactionType
+  category         String?
+  subcategory      String?
+  amount           Decimal                  @db.Decimal(15, 2)
+  description      String
+  reference        String?
+  transactionDate  DateTime                 @default(now())
+  effectiveDate    DateTime?
+  paymentMethod    PaymentMethod?
+  checkNumber      String?
+  invoiceId        String?
+  appointmentId    String?
+  clientId         String?
+  vendorId         String?
+  expenseId        String?
+  status           TransactionStatus        @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  isReconciled     Boolean                  @default(false)
+  reconciledAt     DateTime?
+  reconciledBy     String?
+  bankStatement    String?
+  currency         String                   @default("EGP")
+  exchangeRate     Decimal?                 @db.Decimal(10, 6)
+  originalAmount   Decimal?                 @db.Decimal(15, 2)
+  originalCurrency String?
+  taxAmount        Decimal?                 @db.Decimal(15, 2)
+  taxRate          Decimal?                 @db.Decimal(5, 4)
+  taxCategory      String?
+  isVatApplicable  Boolean                  @default(false)
+  attachments      Json?
+  tags             String[]                 @default([])
+  notes            String?
+  internalNotes    String?
+  runningBalance   Decimal?                 @db.Decimal(15, 2)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  createdBy        String?
+  account          FinancialAccount         @relation(fields: [accountId], references: [id])
+  branch           Branch?                  @relation(fields: [branchId], references: [id])
+  company          Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([accountId])
+  @@index([branchId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([transactionDate])
+  @@index([isReconciled])
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([companyId, transactionDate])
+  @@index([accountId, transactionDate])
+  @@map("financial_transactions")
+}
+
+model AccountTransfer {
+  id                 String           @id @default(cuid())
+  companyId          String
+  fromAccountId      String
+  toAccountId        String
+  amount             Decimal          @db.Decimal(15, 2)
+  description        String
+  reference          String?
+  transferFee        Decimal?         @db.Decimal(15, 2)
+  feeAccount         String?
+  exchangeRate       Decimal?         @db.Decimal(10, 6)
+  fromCurrency       String           @default("EGP")
+  toCurrency         String           @default("EGP")
+  fromCurrencyAmount Decimal?         @db.Decimal(15, 2)
+  toCurrencyAmount   Decimal?         @db.Decimal(15, 2)
+  status             TransferStatus   @default(PENDING)
+  approvedBy         String?
+  approvedAt         DateTime?
+  transferDate       DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  createdBy          String?
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromAccount        FinancialAccount @relation("FromAccount", fields: [fromAccountId], references: [id])
+  toAccount          FinancialAccount @relation("ToAccount", fields: [toAccountId], references: [id])
+
+  @@index([companyId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([status])
+  @@index([transferDate])
+  @@map("account_transfers")
+}
+
+model ExpenseCategory {
+  id                String            @id @default(cuid())
+  companyId         String
+  name              String
+  description       String?
+  code              String?
+  parentId          String?
+  budgetLimit       Decimal?          @db.Decimal(15, 2)
+  alertLimit        Decimal?          @db.Decimal(15, 2)
+  requiresApproval  Boolean           @default(false)
+  defaultTaxRate    Decimal?          @db.Decimal(5, 4)
+  isDeductible      Boolean           @default(true)
+  deductiblePercent Decimal?          @db.Decimal(5, 2)
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String?
+  budgets           Budget[]
+  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent            ExpenseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children          ExpenseCategory[] @relation("CategoryHierarchy")
+  expenses          Expense[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id                  String              @id @default(cuid())
+  companyId           String
+  branchId            String?
+  categoryId          String?
+  title               String
+  description         String?
+  amount              Decimal             @db.Decimal(15, 2)
+  currency            String              @default("EGP")
+  taxAmount           Decimal?            @db.Decimal(15, 2)
+  taxRate             Decimal?            @db.Decimal(5, 4)
+  netAmount           Decimal?            @db.Decimal(15, 2)
+  vendorName          String?
+  vendorId            String?
+  paymentMethod       PaymentMethod?
+  accountId           String?
+  checkNumber         String?
+  reference           String?
+  expenseDate         DateTime
+  paidDate            DateTime?
+  dueDate             DateTime?
+  status              ExpenseStatus       @default(DRAFT)
+  submittedBy         String?
+  submittedAt         DateTime?
+  approvedBy          String?
+  approvedAt          DateTime?
+  rejectedBy          String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  isReimbursable      Boolean             @default(false)
+  reimbursementStatus ReimbursementStatus @default(NOT_APPLICABLE)
+  reimbursedAmount    Decimal?            @db.Decimal(15, 2)
+  reimbursedDate      DateTime?
+  isRecurring         Boolean             @default(false)
+  recurringPattern    Json?
+  parentExpenseId     String?
+  hasReceipt          Boolean             @default(false)
+  receiptUrl          String?
+  attachments         Json?
+  tags                String[]            @default([])
+  notes               String?
+  internalNotes       String?
+  transactionId       String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  createdBy           String?
+  branch              Branch?             @relation(fields: [branchId], references: [id])
+  category            ExpenseCategory?    @relation(fields: [categoryId], references: [id])
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([expenseDate])
+  @@index([submittedBy])
+  @@index([approvedBy])
+  @@index([isReimbursable])
+  @@index([companyId, expenseDate])
+  @@index([companyId, status])
+  @@map("expenses")
+}
+
+model Budget {
+  id              String            @id @default(cuid())
+  companyId       String
+  branchId        String?
+  name            String
+  description     String?
+  budgetType      BudgetType
+  categoryId      String?
+  accountId       String?
+  budgetAmount    Decimal           @db.Decimal(15, 2)
+  spentAmount     Decimal           @default(0) @db.Decimal(15, 2)
+  remainingAmount Decimal           @db.Decimal(15, 2)
+  periodStart     DateTime
+  periodEnd       DateTime
+  periodType      BudgetPeriod
+  alertThreshold  Decimal?          @db.Decimal(5, 2)
+  alertSent       Boolean           @default(false)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String?
+  account         FinancialAccount? @relation(fields: [accountId], references: [id])
+  branch          Branch?           @relation(fields: [branchId], references: [id])
+  category        ExpenseCategory?  @relation(fields: [categoryId], references: [id])
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([budgetType])
+  @@index([periodStart, periodEnd])
+  @@index([isActive])
+  @@map("budgets")
+}
+
+model CashRegisterDay {
+  id              String             @id @default(cuid())
+  companyId       String
+  branchId        String
+  accountId       String
+  date            DateTime           @db.Date
+  openingBalance  Decimal            @db.Decimal(15, 2)
+  openedBy        String?
+  openedAt        DateTime?
+  salesAmount     Decimal            @default(0) @db.Decimal(15, 2)
+  cashSales       Decimal            @default(0) @db.Decimal(15, 2)
+  cardSales       Decimal            @default(0) @db.Decimal(15, 2)
+  otherSales      Decimal            @default(0) @db.Decimal(15, 2)
+  cashIn          Decimal            @default(0) @db.Decimal(15, 2)
+  cashOut         Decimal            @default(0) @db.Decimal(15, 2)
+  cashInReason    String?
+  cashOutReason   String?
+  expectedClosing Decimal            @db.Decimal(15, 2)
+  actualCash      Decimal?           @db.Decimal(15, 2)
+  variance        Decimal?           @db.Decimal(15, 2)
+  closingNotes    String?
+  status          CashRegisterStatus @default(OPEN)
+  closedBy        String?
+  closedAt        DateTime?
+  isReconciled    Boolean            @default(false)
+  reconciledBy    String?
+  reconciledAt    DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  account         FinancialAccount   @relation(fields: [accountId], references: [id])
+  branch          Branch             @relation(fields: [branchId], references: [id])
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales           Sale[]
+
+  @@unique([branchId, accountId, date])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([date])
+  @@index([status])
+  @@map("cash_register_days")
+}
+
+model TaxRate {
+  id            String    @id @default(cuid())
+  companyId     String
+  name          String
+  code          String?
+  rate          Decimal   @db.Decimal(5, 4)
+  type          TaxType
+  description   String?
+  isDefault     Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([type])
+  @@index([isActive])
+  @@map("tax_rates")
+}
+
+model FinancialReport {
+  id           String              @id @default(cuid())
+  companyId    String
+  branchId     String?
+  name         String
+  reportType   FinancialReportType
+  startDate    DateTime
+  endDate      DateTime
+  data         Json?
+  summary      Json?
+  status       ReportStatus        @default(DRAFT)
+  generatedAt  DateTime?
+  parameters   Json?
+  filters      Json?
+  exportUrl    String?
+  exportFormat String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  createdBy    String?
+  branch       Branch?             @relation(fields: [branchId], references: [id])
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([reportType])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@map("financial_reports")
+}
+
+model FinancialSettings {
+  id                      String   @id @default(cuid())
+  companyId               String   @unique
+  defaultCashAccount      String?
+  defaultBankAccount      String?
+  defaultIncomeAccount    String?
+  defaultExpenseAccount   String?
+  fiscalYearStart         DateTime
+  fiscalYearEnd           DateTime
+  baseCurrency            String   @default("EGP")
+  supportedCurrencies     String[] @default(["EGP"])
+  exchangeRateProvider    String?
+  defaultTaxRate          Decimal? @db.Decimal(5, 4)
+  taxIdNumber             String?
+  vatRegistrationNumber   String?
+  requireExpenseApproval  Boolean  @default(true)
+  expenseApprovalLimit    Decimal? @db.Decimal(15, 2)
+  requireTransferApproval Boolean  @default(false)
+  transferApprovalLimit   Decimal? @db.Decimal(15, 2)
+  autoReconciliation      Boolean  @default(false)
+  reconciliationTolerance Decimal? @db.Decimal(10, 2)
+  bankIntegration         Json?
+  accountingIntegration   Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("financial_settings")
+}
+
+model Sale {
+  id             String           @id @default(cuid())
+  companyId      String
+  saleNumber     String           @unique
+  saleDate       DateTime         @default(now())
+  branchId       String
+  staffId        String?
+  clientId       String?
+  subtotal       Decimal          @db.Decimal(15, 2)
+  discountType   DiscountType     @default(FIXED)
+  discountValue  Decimal          @default(0) @db.Decimal(15, 2)
+  discountAmount Decimal          @default(0) @db.Decimal(15, 2)
+  taxAmount      Decimal          @default(0) @db.Decimal(15, 2)
+  total          Decimal          @db.Decimal(15, 2)
+  paymentMethod  PaymentMethod
+  paymentStatus  PaymentStatus    @default(COMPLETED)
+  amountPaid     Decimal          @db.Decimal(15, 2)
+  changeDue      Decimal          @default(0) @db.Decimal(15, 2)
+  receiptNumber  String?
+  invoiceId      String?
+  status         SaleStatus       @default(COMPLETED)
+  notes          String?
+  internalNotes  String?
+  isRefunded     Boolean          @default(false)
+  refundedAmount Decimal          @default(0) @db.Decimal(15, 2)
+  registerDayId  String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  createdBy      String?
+  items          SaleItem[]
+  refunds        SaleRefund[]
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  client         Client?          @relation(fields: [clientId], references: [id])
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoice        Invoice?         @relation(fields: [invoiceId], references: [id])
+  registerDay    CashRegisterDay? @relation(fields: [registerDayId], references: [id])
+  staff          Staff?           @relation(fields: [staffId], references: [id])
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([clientId])
+  @@index([staffId])
+  @@index([saleDate])
+  @@index([paymentMethod])
+  @@index([status])
+  @@index([registerDayId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id          String   @id @default(cuid())
+  saleId      String
+  type        ItemType @default(PRODUCT)
+  productId   String?
+  serviceId   String?
+  name        String
+  description String?
+  sku         String?
+  unitPrice   Decimal  @db.Decimal(15, 2)
+  quantity    Decimal  @db.Decimal(15, 4)
+  discount    Decimal  @default(0) @db.Decimal(15, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 4)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  lineTotal   Decimal  @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product? @relation(fields: [productId], references: [id])
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+  @@index([serviceId])
+  @@map("sale_items")
+}
+
+model SaleRefund {
+  id              String        @id @default(cuid())
+  saleId          String
+  refundNumber    String        @unique
+  refundDate      DateTime      @default(now())
+  amount          Decimal       @db.Decimal(15, 2)
+  reason          String?
+  refundItems     Json?
+  refundMethod    PaymentMethod
+  refundReference String?
+  status          RefundStatus  @default(COMPLETED)
+  processedBy     String?
+  processedAt     DateTime      @default(now())
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  sale            Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([refundDate])
+  @@index([status])
+  @@map("sale_refunds")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  companyId    String
+  fileName     String
+  mimeType     String
+  size         Int
+  type         String
+  url          String
+  thumbnailUrl String?
+  uploadedBy   String
+  uploadedAt   DateTime @default(now())
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([type])
+  @@index([uploadedBy])
+  @@map("files")
+}
+
+enum ReminderType {
+  SMS
+  EMAIL
+  WHATSAPP
+  PUSH
+}
 
 enum UserRole {
   SUPER_ADMIN
@@ -1130,15 +1435,15 @@ enum StaffStatus {
 }
 
 enum AppointmentStatus {
-  PENDING
   SCHEDULED
   CONFIRMED
-  ARRIVED
   IN_PROGRESS
   COMPLETED
   CANCELLED
   NO_SHOW
   RESCHEDULED
+  PENDING
+  ARRIVED
 }
 
 enum AppointmentSource {
@@ -1154,10 +1459,10 @@ enum InvoiceStatus {
   SENT
   VIEWED
   PAID
-  PARTIAL
   OVERDUE
   CANCELLED
   REFUNDED
+  PARTIAL
 }
 
 enum PaymentMethod {
@@ -1173,13 +1478,13 @@ enum PaymentMethod {
 
 enum PaymentStatus {
   PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
   PARTIAL
   PAID
   OVERDUE
-  CANCELLED
-  REFUNDED
-  COMPLETED
-  FAILED
 }
 
 enum TimeOffType {
@@ -1215,7 +1520,6 @@ enum ReportStatus {
   FAILED
 }
 
-// Staff-specific enums
 enum AccessLevel {
   EMPLOYEE
   ADMINISTRATOR
@@ -1239,7 +1543,6 @@ enum ScheduleType {
   TEMPORARY
 }
 
-// Branch-specific enums
 enum BranchType {
   MAIN
   SECONDARY
@@ -1250,229 +1553,18 @@ enum BranchStatus {
   INACTIVE
 }
 
-// Service-specific enums
 enum ServiceType {
   APPOINTMENT
   GROUP_EVENT
 }
 
-// ============================================================================
-// PRODUCT AND INVENTORY MANAGEMENT
-// ============================================================================
-
-model Product {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Basic product information
-  name          String
-  nameAr        String? // Arabic name
-  description   String?
-  descriptionAr String?
-  sku           String? // Stock Keeping Unit
-  barcode       String? // Product barcode
-
-  // Category and classification
-  categoryId String?
-  category   ProductCategory? @relation(fields: [categoryId], references: [id])
-
-  // Pricing
-  price   Decimal  @db.Decimal(10, 2) // Base selling price
-  cost    Decimal? @db.Decimal(10, 2) // Cost price
-  taxRate Decimal  @default(0) @db.Decimal(5, 4) // Tax rate
-
-  // Inventory tracking
-  trackInventory    Boolean @default(true)
-  stock             Int     @default(0) // Total stock across all branches
-  lowStockThreshold Int? // Alert threshold
-
-  // Product variants and attributes
-  variants Json? // Product variants (color, size, etc.)
-  images   String[] // Product images URLs
-
-  // Status and visibility
-  active Boolean @default(true)
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  inventories Inventory[]
-  movements   InventoryMovement[]
-  saleItems   SaleItem[]
-
-  @@index([companyId])
-  @@index([categoryId])
-  @@index([sku])
-  @@index([barcode])
-  @@index([active])
-  @@map("products")
-}
-
-model ProductCategory {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Category information
-  name        String
-  nameAr      String?
-  description String?
-
-  // Hierarchy
-  parentId String?
-  parent   ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children ProductCategory[] @relation("CategoryHierarchy")
-
-  // Display settings
-  order Int     @default(0)
-  color String? // For UI display
-  icon  String? // Icon identifier
-
-  // Status
-  active Boolean @default(true)
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  products Product[]
-
-  @@index([companyId])
-  @@index([parentId])
-  @@index([active])
-  @@map("product_categories")
-}
-
-model Inventory {
-  id String @id @default(cuid())
-
-  // Product and branch relationship
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  // Stock levels
-  quantity         Int @default(0) // Available quantity
-  reservedQuantity Int @default(0) // Reserved for orders/appointments
-
-  // Stock management
-  lastRestocked DateTime? // Last restock date
-  lastCountDate DateTime? // Last physical count
-
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([productId, branchId])
-  @@index([productId])
-  @@index([branchId])
-  @@map("inventories")
-}
-
-model InventoryMovement {
-  id String @id @default(cuid())
-
-  // Product and branch
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  // Movement details
-  type     InventoryMovementType
-  quantity Int // Positive for IN, negative for OUT
-
-  // Reference information
-  reference     String? // Order ID, Transfer ID, etc.
-  referenceType String? // 'sale', 'purchase', 'transfer', 'adjustment'
-
-  // Additional details
-  notes    String?
-  unitCost Decimal? @db.Decimal(10, 2) // Cost at time of movement
-
-  // User tracking
-  performedBy String? // User who performed the action
-
-  // Metadata
-  createdAt DateTime @default(now())
-
-  @@index([productId])
-  @@index([branchId])
-  @@index([type])
-  @@index([createdAt])
-  @@map("inventory_movements")
-}
-
 enum InventoryMovementType {
-  IN // Stock received
-  OUT // Stock sold/used
-  TRANSFER // Transfer between branches
-  ADJUSTMENT // Manual adjustment
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
 }
 
-// ============================================================================
-// NOTIFICATION SYSTEM
-// ============================================================================
-
-model NotificationLog {
-  id String @id @default(cuid())
-
-  // Job tracking
-  jobId      String  @unique // Unique job identifier
-  queueJobId String? // Bull queue job ID
-
-  // Notification details
-  type      NotificationType
-  companyId String
-  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String?
-  branch    Branch?          @relation(fields: [branchId], references: [id])
-
-  // Recipient information
-  recipient      String // Recipient name
-  recipientPhone String? // Phone number
-  recipientEmail String? // Email address
-
-  // Status and result
-  status   NotificationStatus   @default(PENDING)
-  priority NotificationPriority @default(NORMAL)
-  result   String? // JSON result from provider
-  error    String? // Error message if failed
-
-  // Scheduling
-  scheduledFor DateTime?
-  sentAt       DateTime?
-  deliveredAt  DateTime?
-  readAt       DateTime?
-
-  // Metadata
-  metadata Json? // Additional context
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId])
-  @@index([branchId])
-  @@index([type])
-  @@index([status])
-  @@index([scheduledFor])
-  @@index([createdAt])
-  @@map("notification_logs")
-}
-
-// Notification system enums
 enum NotificationType {
   SMS
   EMAIL
@@ -1496,802 +1588,6 @@ enum NotificationPriority {
   HIGH
   CRITICAL
 }
-
-// ============================================================================
-// FINANCIAL MANAGEMENT SYSTEM
-// ============================================================================
-
-model FinancialAccount {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch relationship (optional for company-wide accounts)
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  // Account details
-  name          String // Account name
-  accountNumber String? // Account number or reference
-  accountType   FinancialAccountType
-  subType       String? // Detailed sub-categorization
-
-  // Balance tracking
-  balance         Decimal @default(0) @db.Decimal(15, 2)
-  initialBalance  Decimal @default(0) @db.Decimal(15, 2)
-  availableBalance Decimal @default(0) @db.Decimal(15, 2) // For credit accounts
-
-  // Currency and limits
-  currency     String  @default("EGP")
-  creditLimit  Decimal? @db.Decimal(15, 2)
-  minimumBalance Decimal? @db.Decimal(15, 2)
-
-  // Bank details (for bank accounts)
-  bankName     String?
-  bankBranch   String?
-  iban         String?
-  swiftCode    String?
-  routingNumber String?
-
-  // Account configuration
-  isDefault    Boolean @default(false) // Default account for this type
-  isActive     Boolean @default(true)
-  allowOverdraft Boolean @default(false)
-
-  // Reconciliation
-  lastReconciledDate DateTime?
-  lastReconciledBalance Decimal? @db.Decimal(15, 2)
-
-  // Metadata
-  description String?
-  tags        String[] @default([])
-  notes       String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-
-  // Relations
-  transactions     FinancialTransaction[]
-  fromTransfers    AccountTransfer[] @relation("FromAccount")
-  toTransfers      AccountTransfer[] @relation("ToAccount")
-  cashRegisterDays CashRegisterDay[]
-  budgets          Budget[]
-
-  @@unique([companyId, accountNumber])
-  @@index([companyId])
-  @@index([branchId])
-  @@index([accountType])
-  @@index([isActive])
-  @@index([currency])
-  @@map("financial_accounts")
-}
-
-model FinancialTransaction {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Account relationship
-  accountId String
-  account   FinancialAccount @relation(fields: [accountId], references: [id])
-
-  // Branch relationship
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  // Transaction details
-  type        FinancialTransactionType
-  category    String? // Income/Expense category
-  subcategory String? // Detailed subcategory
-  
-  amount      Decimal @db.Decimal(15, 2)
-  description String
-  reference   String? // Invoice number, check number, etc.
-  
-  // Transaction metadata
-  transactionDate DateTime @default(now())
-  effectiveDate   DateTime? // When the transaction should be effective
-  
-  // Payment method and details
-  paymentMethod PaymentMethod?
-  checkNumber   String?
-  
-  // Related entities
-  invoiceId     String? // Link to invoice
-  appointmentId String? // Link to appointment
-  clientId      String? // Link to client
-  vendorId      String? // Link to vendor/supplier
-  expenseId     String? // Link to expense record
-  
-  // Status and approval
-  status       TransactionStatus @default(PENDING)
-  approvedBy   String? // User who approved
-  approvedAt   DateTime?
-  
-  // Reconciliation
-  isReconciled    Boolean @default(false)
-  reconciledAt    DateTime?
-  reconciledBy    String?
-  bankStatement   String? // Bank statement reference
-  
-  // Currency handling
-  currency         String @default("EGP")
-  exchangeRate     Decimal? @db.Decimal(10, 6)
-  originalAmount   Decimal? @db.Decimal(15, 2)
-  originalCurrency String?
-  
-  // Tax information
-  taxAmount     Decimal? @db.Decimal(15, 2)
-  taxRate       Decimal? @db.Decimal(5, 4)
-  taxCategory   String?
-  isVatApplicable Boolean @default(false)
-  
-  // Additional details
-  attachments   Json? // Array of attachment URLs
-  tags          String[] @default([])
-  notes         String?
-  internalNotes String?
-  
-  // Running balance (for performance)
-  runningBalance Decimal? @db.Decimal(15, 2)
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@index([companyId])
-  @@index([accountId])
-  @@index([branchId])
-  @@index([type])
-  @@index([category])
-  @@index([status])
-  @@index([transactionDate])
-  @@index([isReconciled])
-  @@index([invoiceId])
-  @@index([clientId])
-  @@index([companyId, transactionDate])
-  @@index([accountId, transactionDate])
-  @@map("financial_transactions")
-}
-
-model AccountTransfer {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Account relationships
-  fromAccountId String
-  fromAccount   FinancialAccount @relation("FromAccount", fields: [fromAccountId], references: [id])
-  
-  toAccountId String
-  toAccount   FinancialAccount @relation("ToAccount", fields: [toAccountId], references: [id])
-
-  // Transfer details
-  amount      Decimal @db.Decimal(15, 2)
-  description String
-  reference   String?
-  
-  // Transfer fees
-  transferFee Decimal? @db.Decimal(15, 2)
-  feeAccount  String? // Account to debit transfer fee
-  
-  // Currency exchange
-  exchangeRate       Decimal? @db.Decimal(10, 6)
-  fromCurrency       String   @default("EGP")
-  toCurrency         String   @default("EGP")
-  fromCurrencyAmount Decimal? @db.Decimal(15, 2)
-  toCurrencyAmount   Decimal? @db.Decimal(15, 2)
-  
-  // Status and approval
-  status     TransferStatus @default(PENDING)
-  approvedBy String?
-  approvedAt DateTime?
-  
-  // Metadata
-  transferDate DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  createdBy    String?
-  
-  @@index([companyId])
-  @@index([fromAccountId])
-  @@index([toAccountId])
-  @@index([status])
-  @@index([transferDate])
-  @@map("account_transfers")
-}
-
-model ExpenseCategory {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Category details
-  name        String
-  description String?
-  code        String? // Category code for reporting
-  
-  // Hierarchy support
-  parentId String?
-  parent   ExpenseCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children ExpenseCategory[] @relation("CategoryHierarchy")
-  
-  // Budget and limits
-  budgetLimit  Decimal? @db.Decimal(15, 2)
-  alertLimit   Decimal? @db.Decimal(15, 2)
-  requiresApproval Boolean @default(false)
-  
-  // Tax settings
-  defaultTaxRate     Decimal? @db.Decimal(5, 4)
-  isDeductible       Boolean  @default(true)
-  deductiblePercent  Decimal? @db.Decimal(5, 2)
-  
-  // Status
-  isActive Boolean @default(true)
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  // Relations
-  expenses Expense[]
-  budgets  Budget[]
-  
-  @@unique([companyId, code])
-  @@index([companyId])
-  @@index([parentId])
-  @@index([isActive])
-  @@map("expense_categories")
-}
-
-model Expense {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch relationship
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  // Category
-  categoryId String?
-  category   ExpenseCategory? @relation(fields: [categoryId], references: [id])
-
-  // Expense details
-  title        String
-  description  String?
-  amount       Decimal @db.Decimal(15, 2)
-  currency     String  @default("EGP")
-  
-  // Tax details
-  taxAmount    Decimal? @db.Decimal(15, 2)
-  taxRate      Decimal? @db.Decimal(5, 4)
-  netAmount    Decimal? @db.Decimal(15, 2)
-  
-  // Vendor information
-  vendorName   String?
-  vendorId     String? // Reference to vendor if exists
-  
-  // Payment information
-  paymentMethod PaymentMethod?
-  accountId     String? // Account used for payment
-  checkNumber   String?
-  reference     String? // Invoice/receipt reference
-  
-  // Dates
-  expenseDate DateTime
-  paidDate    DateTime?
-  dueDate     DateTime?
-  
-  // Approval workflow
-  status          ExpenseStatus @default(DRAFT)
-  submittedBy     String? // Employee who submitted
-  submittedAt     DateTime?
-  approvedBy      String? // Manager who approved
-  approvedAt      DateTime?
-  rejectedBy      String?
-  rejectedAt      DateTime?
-  rejectionReason String?
-  
-  // Reimbursement (for employee expenses)
-  isReimbursable     Boolean @default(false)
-  reimbursementStatus ReimbursementStatus @default(NOT_APPLICABLE)
-  reimbursedAmount   Decimal? @db.Decimal(15, 2)
-  reimbursedDate     DateTime?
-  
-  // Recurring expenses
-  isRecurring      Boolean @default(false)
-  recurringPattern Json? // Recurrence configuration
-  parentExpenseId  String? // For recurring expenses
-  
-  // Receipt and documentation
-  hasReceipt    Boolean @default(false)
-  receiptUrl    String?
-  attachments   Json? // Array of attachment URLs
-  
-  // Additional fields
-  tags          String[] @default([])
-  notes         String?
-  internalNotes String?
-  
-  // Integration
-  transactionId String? // Linked financial transaction
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@index([companyId])
-  @@index([branchId])
-  @@index([categoryId])
-  @@index([status])
-  @@index([expenseDate])
-  @@index([submittedBy])
-  @@index([approvedBy])
-  @@index([isReimbursable])
-  @@index([companyId, expenseDate])
-  @@index([companyId, status])
-  @@map("expenses")
-}
-
-model Budget {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch relationship (optional for company-wide budgets)
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  // Budget scope
-  name        String
-  description String?
-  budgetType  BudgetType
-  
-  // Category or account
-  categoryId String?
-  category   ExpenseCategory? @relation(fields: [categoryId], references: [id])
-  
-  accountId String?
-  account   FinancialAccount? @relation(fields: [accountId], references: [id])
-  
-  // Budget amounts
-  budgetAmount  Decimal @db.Decimal(15, 2)
-  spentAmount   Decimal @default(0) @db.Decimal(15, 2)
-  remainingAmount Decimal @db.Decimal(15, 2) // Calculated field
-  
-  // Period
-  periodStart DateTime
-  periodEnd   DateTime
-  periodType  BudgetPeriod // MONTHLY, QUARTERLY, YEARLY, CUSTOM
-  
-  // Alerts
-  alertThreshold Decimal? @db.Decimal(5, 2) // Percentage
-  alertSent      Boolean  @default(false)
-  
-  // Status
-  isActive Boolean @default(true)
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@index([companyId])
-  @@index([branchId])
-  @@index([budgetType])
-  @@index([periodStart, periodEnd])
-  @@index([isActive])
-  @@map("budgets")
-}
-
-model CashRegisterDay {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch and account
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-  
-  accountId String
-  account   FinancialAccount @relation(fields: [accountId], references: [id])
-
-  // Date
-  date DateTime @db.Date
-
-  // Opening details
-  openingBalance Decimal @db.Decimal(15, 2)
-  openedBy       String?
-  openedAt       DateTime?
-  
-  // Sales and transactions
-  salesAmount     Decimal @default(0) @db.Decimal(15, 2)
-  cashSales       Decimal @default(0) @db.Decimal(15, 2)
-  cardSales       Decimal @default(0) @db.Decimal(15, 2)
-  otherSales      Decimal @default(0) @db.Decimal(15, 2)
-  
-  // Cash movements
-  cashIn          Decimal @default(0) @db.Decimal(15, 2)
-  cashOut         Decimal @default(0) @db.Decimal(15, 2)
-  cashInReason    String?
-  cashOutReason   String?
-  
-  // Expected closing
-  expectedClosing Decimal @db.Decimal(15, 2)
-  
-  // Actual closing
-  actualCash      Decimal? @db.Decimal(15, 2)
-  variance        Decimal? @db.Decimal(15, 2)
-  closingNotes    String?
-  
-  // Status
-  status    CashRegisterStatus @default(OPEN)
-  closedBy  String?
-  closedAt  DateTime?
-  
-  // Reconciliation
-  isReconciled    Boolean @default(false)
-  reconciledBy    String?
-  reconciledAt    DateTime?
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  sales Sale[]
-  
-  @@unique([branchId, accountId, date])
-  @@index([companyId])
-  @@index([branchId])
-  @@index([date])
-  @@index([status])
-  @@map("cash_register_days")
-}
-
-model TaxRate {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Tax details
-  name        String
-  code        String? // Tax code
-  rate        Decimal @db.Decimal(5, 4)
-  type        TaxType
-  description String?
-  
-  // Applicability
-  isDefault   Boolean @default(false)
-  isActive    Boolean @default(true)
-  
-  // Date range
-  effectiveFrom DateTime
-  effectiveTo   DateTime?
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@unique([companyId, code])
-  @@index([companyId])
-  @@index([type])
-  @@index([isActive])
-  @@map("tax_rates")
-}
-
-model FinancialReport {
-  id String @id @default(cuid())
-
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Branch filter (optional)
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  // Report details
-  name       String
-  reportType FinancialReportType
-  
-  // Date range
-  startDate DateTime
-  endDate   DateTime
-  
-  // Generated data
-  data       Json? // Report data
-  summary    Json? // Summary metrics
-  
-  // Status
-  status       ReportStatus @default(DRAFT)
-  generatedAt  DateTime?
-  
-  // Configuration
-  parameters Json? // Report parameters
-  filters    Json? // Applied filters
-  
-  // Export
-  exportUrl    String?
-  exportFormat String? // PDF, EXCEL, CSV
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@index([companyId])
-  @@index([reportType])
-  @@index([startDate, endDate])
-  @@index([status])
-  @@map("financial_reports")
-}
-
-// Update Company model to include financial relations
-model FinancialSettings {
-  id String @id @default(cuid())
-  
-  // Multi-tenant relationship
-  companyId String @unique
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  // Default accounts
-  defaultCashAccount     String?
-  defaultBankAccount     String?
-  defaultIncomeAccount   String?
-  defaultExpenseAccount  String?
-  
-  // Fiscal year
-  fiscalYearStart DateTime
-  fiscalYearEnd   DateTime
-  
-  // Currency settings
-  baseCurrency           String @default("EGP")
-  supportedCurrencies    String[] @default(["EGP"])
-  exchangeRateProvider   String?
-  
-  // Tax settings
-  defaultTaxRate         Decimal? @db.Decimal(5, 4)
-  taxIdNumber            String?
-  vatRegistrationNumber  String?
-  
-  // Approval workflows
-  requireExpenseApproval Boolean @default(true)
-  expenseApprovalLimit   Decimal? @db.Decimal(15, 2)
-  requireTransferApproval Boolean @default(false)
-  transferApprovalLimit  Decimal? @db.Decimal(15, 2)
-  
-  // Reconciliation
-  autoReconciliation     Boolean @default(false)
-  reconciliationTolerance Decimal? @db.Decimal(10, 2)
-  
-  // Integration settings
-  bankIntegration        Json? // Bank API settings
-  accountingIntegration  Json? // Third-party accounting integration
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("financial_settings")
-}
-
-// ============================================================================
-// SALES AND POS MODELS
-// ============================================================================
-
-model Sale {
-  id String @id @default(cuid())
-  
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  // Transaction details
-  saleNumber   String   @unique
-  saleDate     DateTime @default(now())
-  
-  // Location and staff
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-  
-  staffId String?
-  staff   Staff?  @relation(fields: [staffId], references: [id])
-  
-  // Customer (optional for POS sales)
-  clientId String?
-  client   Client? @relation(fields: [clientId], references: [id])
-  
-  // Items and pricing
-  items         SaleItem[]
-  subtotal      Decimal @db.Decimal(15, 2)
-  discountType  DiscountType @default(FIXED)
-  discountValue Decimal @default(0) @db.Decimal(15, 2)
-  discountAmount Decimal @default(0) @db.Decimal(15, 2)
-  taxAmount     Decimal @default(0) @db.Decimal(15, 2)
-  total         Decimal @db.Decimal(15, 2)
-  
-  // Payment information
-  paymentMethod PaymentMethod
-  paymentStatus PaymentStatus @default(COMPLETED)
-  amountPaid    Decimal @db.Decimal(15, 2)
-  changeDue     Decimal @default(0) @db.Decimal(15, 2)
-  
-  // Reference numbers
-  receiptNumber String?
-  invoiceId     String? // Link to generated invoice if needed
-  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
-  
-  // Status
-  status SaleStatus @default(COMPLETED)
-  
-  // Additional information
-  notes         String?
-  internalNotes String?
-  
-  // Refund tracking
-  refunds       SaleRefund[]
-  isRefunded    Boolean @default(false)
-  refundedAmount Decimal @default(0) @db.Decimal(15, 2)
-  
-  // Cash register reference
-  registerDayId String?
-  registerDay   CashRegisterDay? @relation(fields: [registerDayId], references: [id])
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String?
-  
-  @@index([companyId])
-  @@index([branchId])
-  @@index([clientId])
-  @@index([staffId])
-  @@index([saleDate])
-  @@index([paymentMethod])
-  @@index([status])
-  @@index([registerDayId])
-  @@map("sales")
-}
-
-model SaleItem {
-  id String @id @default(cuid())
-  
-  // Sale relationship
-  saleId String
-  sale   Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  
-  // Item details
-  type        ItemType @default(PRODUCT)
-  productId   String? // For product items
-  product     Product? @relation(fields: [productId], references: [id])
-  serviceId   String? // For service items  
-  service     Service? @relation(fields: [serviceId], references: [id])
-  
-  // Item information
-  name        String // Item name at time of sale
-  description String?
-  sku         String? // Product SKU if applicable
-  
-  // Pricing
-  unitPrice   Decimal @db.Decimal(15, 2)
-  quantity    Decimal @db.Decimal(15, 4)
-  discount    Decimal @default(0) @db.Decimal(15, 2)
-  taxRate     Decimal @default(0) @db.Decimal(5, 4)
-  taxAmount   Decimal @default(0) @db.Decimal(15, 2)
-  lineTotal   Decimal @db.Decimal(15, 2)
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([saleId])
-  @@index([productId])
-  @@index([serviceId])
-  @@map("sale_items")
-}
-
-model SaleRefund {
-  id String @id @default(cuid())
-  
-  // Sale relationship
-  saleId String
-  sale   Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  
-  // Refund details
-  refundNumber String   @unique
-  refundDate   DateTime @default(now())
-  amount       Decimal  @db.Decimal(15, 2)
-  reason       String?
-  
-  // Refund items (which specific items were refunded)
-  refundItems Json? // Array of {itemId, quantity, amount}
-  
-  // Payment details
-  refundMethod    PaymentMethod
-  refundReference String? // Reference number for refund transaction
-  
-  // Status
-  status RefundStatus @default(COMPLETED)
-  
-  // Processing information
-  processedBy String?
-  processedAt DateTime @default(now())
-  
-  // Notes
-  notes String?
-  
-  // Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([saleId])
-  @@index([refundDate])
-  @@index([status])
-  @@map("sale_refunds")
-}
-
-// ============================================================================
-// FILE STORAGE MODEL
-// ============================================================================
-
-model File {
-  id String @id @default(cuid())
-  
-  // Multi-tenant relationship
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  // File details
-  fileName     String
-  mimeType     String
-  size         Int
-  type         String // avatar, service, document, logo, invoice
-  url          String
-  thumbnailUrl String?
-  
-  // Upload information
-  uploadedBy String
-  uploadedAt DateTime @default(now())
-  
-  // Metadata
-  metadata  Json?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([companyId])
-  @@index([type])
-  @@index([uploadedBy])
-  @@map("files")
-}
-
-// ============================================================================
-// FINANCIAL ENUMS
-// ============================================================================
 
 enum FinancialAccountType {
   CASH
@@ -2404,10 +1700,6 @@ enum FinancialReportType {
   RECONCILIATION
   CUSTOM
 }
-
-// ============================================================================
-// SALES AND POS ENUMS
-// ============================================================================
 
 enum SaleStatus {
   DRAFT
