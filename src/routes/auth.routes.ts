@@ -465,6 +465,12 @@ router.post('/refresh', authController.refreshToken);
  */
 router.get('/profile', authenticateToken, authController.getProfile);
 
+// Alias for /profile — frontend uses /auth/me
+router.get('/me', authenticateToken, authController.getProfile);
+
+// Update current user's profile
+router.put('/profile', authenticateToken, authController.updateProfile);
+
 /**
  * @swagger
  * /auth/change-password:
@@ -556,6 +562,11 @@ router.post('/change-password', authenticateToken, changePasswordValidation, aut
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/request-reset', [
+  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
+], authController.requestPasswordReset);
+
+// Alias for /request-reset — frontend uses /auth/forgot-password
+router.post('/forgot-password', [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
 ], authController.requestPasswordReset);
 

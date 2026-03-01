@@ -62,6 +62,7 @@ model Company {
   staff                 Staff[]
   taxRates              TaxRate[]
   users                 User[]
+  clientCategories      ClientCategory[]
 
   @@index([subscriptionStatus])
   @@index([isActive])
@@ -345,6 +346,30 @@ model ServiceCategory {
   @@index([active])
   @@index([order])
   @@map("service_categories")
+}
+
+model ClientCategory {
+  id          String   @id @default(cuid())
+  companyId   String
+  branchId    String?
+  name        String
+  nameAr      String?
+  description String?
+  color       String?
+  icon        String?
+  itemCount   Int      @default(0)
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([active])
+  @@index([order])
+  @@map("client_categories")
 }
 
 model ServiceBranch {

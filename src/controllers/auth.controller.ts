@@ -5,6 +5,7 @@ import { authService, RegisterUserData, RegisterWithCompanyData, LoginCredential
 import { extractTokenFromHeader, generateTokenPair, generateTokenId } from '../utils/jwt.utils';
 import { logger } from '../config/logger';
 import firebaseService from '../config/firebase';
+import { prisma } from '../config/database';
 
 export class AuthController {
   /**
@@ -747,6 +748,64 @@ export class AuthController {
         success: false,
         message: 'Auth service health check failed',
         error: 'HEALTH_CHECK_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Update current user's profile
+   */
+  async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const { firstName, lastName, phone, avatar } = req.body;
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user.userId },
+        data: {
+          ...(firstName !== undefined && { firstName }),
+          ...(lastName !== undefined && { lastName }),
+          ...(phone !== undefined && { phone }),
+          ...(avatar !== undefined && { avatar }),
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          avatar: true,
+          companyId: true,
+          role: true,
+          isActive: true,
+          isVerified: true,
+          lastLoginAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+          user: updatedUser,
+        },
+      });
+    } catch (error) {
+      logger.error('Update profile error:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update profile',
+        error: 'PROFILE_UPDATE_FAILED',
       });
     }
   }

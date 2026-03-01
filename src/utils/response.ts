@@ -109,6 +109,11 @@ export class ResponseHelper {
   }
 }
 
+// Helper to check if an object is an Express Response (not just any object with a 'status' field)
+function isExpressResponse(obj: any): obj is Response {
+  return obj && typeof obj === 'object' && typeof obj.status === 'function' && typeof obj.json === 'function';
+}
+
 // Express Response helper functions - support both old and new signatures
 export function successResponse<T>(
   resOrData?: Response | T,
@@ -117,7 +122,7 @@ export function successResponse<T>(
   statusCode: number = 200
 ): Response<ApiResponse<T>> | ApiResponse<T> {
   // New signature: (res, message, data?, statusCode?)
-  if (resOrData && typeof resOrData === 'object' && 'status' in resOrData) {
+  if (isExpressResponse(resOrData)) {
     const res = resOrData as Response;
     const message = messageOrData as string;
     return res.status(statusCode).json({
@@ -127,7 +132,7 @@ export function successResponse<T>(
       timestamp: new Date().toISOString(),
     });
   }
-  
+
   // Old signature: (data?, message?)
   return {
     success: true,
@@ -144,7 +149,7 @@ export function errorResponse(
   data?: any
 ): Response<ApiResponse> | ApiResponse {
   // New signature: (res, error, statusCode?, data?)
-  if (resOrError && typeof resOrError === 'object' && 'status' in resOrError) {
+  if (isExpressResponse(resOrError)) {
     const res = resOrError as Response;
     const error = errorOrData as string;
     const statusCode = typeof statusCodeOrData === 'number' ? statusCodeOrData : 400;
@@ -156,7 +161,7 @@ export function errorResponse(
       timestamp: new Date().toISOString(),
     });
   }
-  
+
   // Old signature: (error, data?)
   return {
     success: false,

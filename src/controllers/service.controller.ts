@@ -642,17 +642,20 @@ export class ServiceController {
    */
   async getOnlineBookableServices(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({
+      // Support both authenticated (req.user) and public (query param) access
+      const companyId = req.user?.companyId || req.query.companyId as string;
+
+      if (!companyId) {
+        res.status(400).json({
           success: false,
-          message: 'Authentication required',
-          error: 'NOT_AUTHENTICATED',
+          message: 'Company ID is required',
+          error: 'MISSING_COMPANY_ID',
         });
         return;
       }
 
       const branchId = req.query.branchId as string;
-      const services = await serviceService.getOnlineBookableServices(req.user.companyId, branchId);
+      const services = await serviceService.getOnlineBookableServices(companyId, branchId);
 
       res.status(200).json({
         success: true,

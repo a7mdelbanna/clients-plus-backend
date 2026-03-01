@@ -207,6 +207,44 @@ router.get('/', saleController.getSales.bind(saleController));
 
 /**
  * @swagger
+ * /sales/daily-summary:
+ *   get:
+ *     summary: Get daily sales summary
+ *     tags: [Sales]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: branchId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Daily summary retrieved successfully
+ */
+router.get('/daily-summary', saleController.getDailySummary.bind(saleController));
+
+/**
+ * @swagger
+ * /sales/discount:
+ *   post:
+ *     summary: Apply discount to a sale
+ *     tags: [Sales]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Discount applied successfully
+ */
+router.post('/discount', discountValidation, saleController.applyDiscount.bind(saleController));
+
+/**
+ * @swagger
  * /sales/{id}:
  *   get:
  *     summary: Get sale by ID
@@ -326,115 +364,5 @@ router.post('/:id/refund', param('id').notEmpty(), ...refundValidation, saleCont
  *         description: Sale not found
  */
 router.post('/:id/receipt', param('id').notEmpty(), saleController.generateReceipt.bind(saleController));
-
-/**
- * @swagger
- * /sales/daily-summary:
- *   get:
- *     summary: Get daily sales summary
- *     tags: [Sales]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: date
- *         schema:
- *           type: string
- *           format: date
- *         description: Date for summary (defaults to today)
- *       - in: query
- *         name: branchId
- *         schema:
- *           type: string
- *         description: Filter by branch
- *     responses:
- *       200:
- *         description: Daily summary retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     date:
- *                       type: string
- *                       format: date
- *                     totalSales:
- *                       type: number
- *                     salesCount:
- *                       type: integer
- *                     averageSale:
- *                       type: number
- *                     paymentMethodBreakdown:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           method:
- *                             type: string
- *                           amount:
- *                             type: number
- *                           count:
- *                             type: integer
- *                     topItems:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           name:
- *                             type: string
- *                           quantitySold:
- *                             type: number
- *                           totalRevenue:
- *                             type: number
- *                           timesSold:
- *                             type: integer
- *       401:
- *         description: Unauthorized
- */
-router.get('/daily-summary', saleController.getDailySummary.bind(saleController));
-
-/**
- * @swagger
- * /sales/discount:
- *   post:
- *     summary: Apply discount to a sale
- *     tags: [Sales]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - saleId
- *               - discountType
- *               - discountValue
- *             properties:
- *               saleId:
- *                 type: string
- *               discountType:
- *                 type: string
- *                 enum: [PERCENTAGE, FIXED]
- *               discountValue:
- *                 type: number
- *                 minimum: 0
- *     responses:
- *       200:
- *         description: Discount applied successfully
- *       400:
- *         description: Invalid discount data
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Sale not found
- */
-router.post('/discount', discountValidation, saleController.applyDiscount.bind(saleController));
 
 export default router;

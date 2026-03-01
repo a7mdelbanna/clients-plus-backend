@@ -341,7 +341,7 @@ export class AppointmentService {
           ...(updates as any),
           endTime,
           lastModifiedBy: userId,
-          changeHistory: [...(currentAppointment.changeHistory as any[] || []), changeEntry]
+          changeHistory: [...(Array.isArray(currentAppointment.changeHistory) ? currentAppointment.changeHistory : []), changeEntry]
         },
         include: {
           client: true,

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { productController } from '../controllers/product.controller';
+import { productCategoryController } from '../controllers/product-category.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -173,6 +174,57 @@ router.use(authenticateToken);
  *           type: boolean
  *           default: true
  */
+
+// ==================== Product Statistics (must be before /:id) ====================
+
+/**
+ * @swagger
+ * /products/stats/overview:
+ *   get:
+ *     summary: Get product statistics
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Product statistics retrieved successfully
+ */
+router.get('/stats/overview',
+  productController.getProductStats
+);
+
+// Product categories (frontend expects /products/categories)
+router.get('/categories', productCategoryController.getCategories);
+router.post('/categories', productCategoryController.createCategory);
+
+// ==================== Barcode Management (must be before /:id) ====================
+
+/**
+ * @swagger
+ * /products/barcode/{barcode}:
+ *   get:
+ *     summary: Search product by barcode
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: barcode
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product found by barcode
+ *       404:
+ *         description: Product not found with this barcode
+ */
+router.get('/barcode/:barcode',
+  [
+    param('barcode').isString().isLength({ min: 1 }),
+  ],
+  productController.searchByBarcode
+);
 
 // ==================== Product CRUD ====================
 
@@ -485,99 +537,6 @@ router.delete('/:id',
     param('id').isString().isLength({ min: 1 }),
   ],
   productController.deleteProduct
-);
-
-// ==================== Barcode Management ====================
-
-/**
- * @swagger
- * /products/barcode/{barcode}:
- *   get:
- *     summary: Search product by barcode
- *     description: Find a product by its barcode
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: barcode
- *         required: true
- *         schema:
- *           type: string
- *         description: Product barcode
- *     responses:
- *       200:
- *         description: Product found by barcode
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/Product'
- *                 message:
- *                   type: string
- *       404:
- *         description: Product not found with this barcode
- */
-router.get('/barcode/:barcode',
-  [
-    param('barcode').isString().isLength({ min: 1 }),
-  ],
-  productController.searchByBarcode
-);
-
-// ==================== Product Statistics ====================
-
-/**
- * @swagger
- * /products/stats/overview:
- *   get:
- *     summary: Get product statistics
- *     description: Get overview statistics for products and inventory
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Product statistics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalProducts:
- *                       type: integer
- *                     activeProducts:
- *                       type: integer
- *                     inactiveProducts:
- *                       type: integer
- *                     trackedProducts:
- *                       type: integer
- *                     untrackedProducts:
- *                       type: integer
- *                     categoriesCount:
- *                       type: integer
- *                     totalStockUnits:
- *                       type: integer
- *                     lowStockCount:
- *                       type: integer
- *                     outOfStockCount:
- *                       type: integer
- *                     stockHealthPercentage:
- *                       type: integer
- *                 message:
- *                   type: string
- */
-router.get('/stats/overview',
-  productController.getProductStats
 );
 
 export default router;

@@ -10,14 +10,24 @@ router.use(authenticate);
 // Staff CRUD operations
 router.get('/', staffController.getStaff);
 router.get('/stats', staffController.getStaffStats);
+
+// Position/role management (must be before /:id to avoid conflict)
+router.get('/positions', staffController.getPositions);
+router.post('/positions', staffController.createPosition);
+router.put('/positions/:positionId', staffController.updatePosition);
+router.delete('/positions/:positionId', staffController.deletePosition);
+
+// Staff filtering endpoints (must be before /:id)
+router.get('/by-service/:serviceId', staffController.getStaffByService);
+router.get('/by-branch/:branchId', staffController.getStaffByBranch);
+
+// Staff reorder (must be before /:id)
+router.post('/reorder', staffController.reorderStaff);
+
 router.get('/:id', staffController.getStaffById);
 router.post('/', staffController.createStaff);
 router.put('/:id', staffController.updateStaff);
 router.delete('/:id', staffController.deleteStaff);
-
-// Staff filtering endpoints
-router.get('/by-service/:serviceId', staffController.getStaffByService);
-router.get('/by-branch/:branchId', staffController.getStaffByBranch);
 
 // Service assignments
 router.post('/:id/assign-service', staffController.assignService);
@@ -28,7 +38,6 @@ router.post('/:id/assign-branch', staffController.assignBranch);
 router.delete('/:id/unassign-branch/:branchId', staffController.unassignBranch);
 
 // Staff ordering and management
-router.post('/reorder', staffController.reorderStaff);
 router.post('/:id/send-invitation', staffController.sendInvitation);
 
 // Schedule management
@@ -48,11 +57,5 @@ router.get('/:id/commission', staffController.getCommissionData);
 router.get('/:id/performance', staffController.getPerformanceMetrics);
 router.get('/:id/revenue', staffController.getRevenueAnalytics);
 router.post('/:id/commission-rate', staffController.updateCommissionRate);
-
-// Position/role management
-router.get('/positions', staffController.getPositions);
-router.post('/positions', staffController.createPosition);
-router.put('/positions/:positionId', staffController.updatePosition);
-router.delete('/positions/:positionId', staffController.deletePosition);
 
 export default router;

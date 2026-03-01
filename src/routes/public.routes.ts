@@ -13,31 +13,31 @@ const router = Router();
 
 // Validation for company/branch context
 const companyIdValidation = [
-  param('companyId').isUUID().withMessage('Invalid company ID'),
+  param('companyId').isString().notEmpty().withMessage('Invalid company ID'),
   handleValidationErrors,
 ];
 
 const branchIdValidation = [
-  param('branchId').isUUID().withMessage('Invalid branch ID'),
+  param('branchId').isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
 ];
 
 const availabilityValidation = [
-  body('serviceId').isUUID().withMessage('Service ID is required'),
+  body('serviceId').isString().notEmpty().withMessage('Service ID is required'),
   body('date').isISO8601().withMessage('Valid date is required'),
-  body('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  body('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
 ];
 
 const bookingValidation = [
-  body('serviceId').isUUID().withMessage('Service ID is required'),
+  body('serviceId').isString().notEmpty().withMessage('Service ID is required'),
   body('appointmentDate').isISO8601().withMessage('Valid appointment date is required'),
   body('appointmentTime').matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('Valid appointment time is required (HH:MM)'),
   body('clientName').isString().isLength({ min: 2, max: 100 }).withMessage('Client name must be 2-100 characters'),
   body('clientPhone').isString().isLength({ min: 10, max: 20 }).withMessage('Valid phone number is required'),
   body('clientEmail').optional().isEmail().withMessage('Valid email is required'),
   body('notes').optional().isString().isLength({ max: 500 }).withMessage('Notes must be less than 500 characters'),
-  body('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  body('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
 ];
 
@@ -48,8 +48,8 @@ const bookingValidation = [
  * @access  Public
  */
 router.get('/services', 
-  query('companyId').isUUID().withMessage('Company ID is required'),
-  query('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  query('companyId').isString().notEmpty().withMessage('Company ID is required'),
+  query('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
   serviceController.getOnlineBookableServices
 );
@@ -61,7 +61,7 @@ router.get('/services',
  * @access  Public
  */
 router.get('/branches',
-  query('companyId').isUUID().withMessage('Company ID is required'),
+  query('companyId').isString().notEmpty().withMessage('Company ID is required'),
   handleValidationErrors,
   branchController.getPublicBranches
 );
@@ -73,10 +73,10 @@ router.get('/branches',
  * @access  Public
  */
 router.get('/availability',
-  query('companyId').isUUID().withMessage('Company ID is required'),
-  query('serviceId').isUUID().withMessage('Service ID is required'),
+  query('companyId').isString().notEmpty().withMessage('Company ID is required'),
+  query('serviceId').isString().notEmpty().withMessage('Service ID is required'),
   query('date').isISO8601().withMessage('Valid date is required'),
-  query('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  query('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
   appointmentController.getPublicAvailability
 );
@@ -88,7 +88,7 @@ router.get('/availability',
  * @access  Public
  */
 router.post('/booking',
-  body('companyId').isUUID().withMessage('Company ID is required'),
+  body('companyId').isString().notEmpty().withMessage('Company ID is required'),
   ...bookingValidation,
   appointmentController.createPublicBooking
 );
@@ -100,7 +100,7 @@ router.post('/booking',
  * @access  Public
  */
 router.get('/my-bookings',
-  query('companyId').isUUID().withMessage('Company ID is required'),
+  query('companyId').isString().notEmpty().withMessage('Company ID is required'),
   query('phone').isString().isLength({ min: 10, max: 20 }).withMessage('Valid phone number is required'),
   handleValidationErrors,
   appointmentController.getClientBookings
@@ -113,7 +113,7 @@ router.get('/my-bookings',
  * @access  Public
  */
 router.post('/cancel-booking/:id',
-  param('id').isUUID().withMessage('Invalid booking ID'),
+  param('id').isString().notEmpty().withMessage('Invalid booking ID'),
   body('phone').isString().isLength({ min: 10, max: 20 }).withMessage('Phone number is required for verification'),
   handleValidationErrors,
   appointmentController.cancelPublicBooking
@@ -126,11 +126,11 @@ router.post('/cancel-booking/:id',
  * @access  Public
  */
 router.post('/bulk-availability',
-  body('companyId').isUUID().withMessage('Company ID is required'),
-  body('serviceId').isUUID().withMessage('Service ID is required'),
+  body('companyId').isString().notEmpty().withMessage('Company ID is required'),
+  body('serviceId').isString().notEmpty().withMessage('Service ID is required'),
   body('startDate').isISO8601().withMessage('Valid start date is required'),
   body('endDate').isISO8601().withMessage('Valid end date is required'),
-  body('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  body('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
   appointmentController.getBulkAvailability
 );
@@ -142,13 +142,13 @@ router.post('/bulk-availability',
  * @access  Public
  */
 router.post('/waitlist',
-  body('companyId').isUUID().withMessage('Company ID is required'),
-  body('serviceId').isUUID().withMessage('Service ID is required'),
+  body('companyId').isString().notEmpty().withMessage('Company ID is required'),
+  body('serviceId').isString().notEmpty().withMessage('Service ID is required'),
   body('preferredDate').isISO8601().withMessage('Valid preferred date is required'),
   body('clientName').isString().isLength({ min: 2, max: 100 }).withMessage('Client name must be 2-100 characters'),
   body('clientPhone').isString().isLength({ min: 10, max: 20 }).withMessage('Valid phone number is required'),
   body('clientEmail').optional().isEmail().withMessage('Valid email is required'),
-  body('branchId').optional().isUUID().withMessage('Invalid branch ID'),
+  body('branchId').optional().isString().notEmpty().withMessage('Invalid branch ID'),
   handleValidationErrors,
   appointmentController.addToWaitlist
 );
@@ -159,7 +159,7 @@ router.post('/waitlist',
  * @access  Public
  */
 router.delete('/waitlist/:id',
-  param('id').isUUID().withMessage('Invalid waitlist entry ID'),
+  param('id').isString().notEmpty().withMessage('Invalid waitlist entry ID'),
   body('phone').isString().isLength({ min: 10, max: 20 }).withMessage('Phone number is required for verification'),
   handleValidationErrors,
   appointmentController.removeFromWaitlist

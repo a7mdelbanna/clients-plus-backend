@@ -72,7 +72,7 @@ const createScheduleSchema = z.object({
 
 const availabilityRequestSchema = z.object({
   date: z.string().datetime(),
-  duration: z.number().int().min(1),
+  duration: z.coerce.number().int().min(1),
   branchId: z.string(),
 });
 

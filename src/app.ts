@@ -24,7 +24,7 @@ import companyRoutes from './routes/company.routes';
 import userRoutes from './routes/user.routes';
 import clientRoutes from './routes/client.routes';
 import projectRoutes from './routes/project.routes';
-// import invoiceRoutes from './routes/invoice.routes';
+import invoiceRoutes from './routes/invoice.routes';
 import branchRoutes from './routes/branch.routes';
 import serviceRoutes from './routes/service.routes';
 import staffRoutes from './routes/staff.routes';
@@ -38,6 +38,7 @@ import publicRoutes from './routes/public.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import productRoutes from './routes/product.routes';
 import productCategoryRoutes from './routes/product-category.routes';
+import clientCategoryRoutes from './routes/client-category.routes';
 import financialRoutes from './routes/financial.routes';
 import saleRoutes from './routes/sale.routes';
 import registerRoutes from './routes/register.routes';
@@ -109,7 +110,7 @@ class App {
     // Rate limiting
     const limiter = rateLimit({
       windowMs: env.RATE_LIMIT_WINDOW_MS,
-      max: env.RATE_LIMIT_MAX_REQUESTS,
+      max: env.NODE_ENV === 'development' ? 10000 : env.RATE_LIMIT_MAX_REQUESTS,
       message: {
         error: 'Too many requests from this IP, please try again later.',
       },
@@ -155,8 +156,9 @@ class App {
     this.app.use(`${apiPrefix}/inventory`, inventoryRoutes);
     this.app.use(`${apiPrefix}/products`, productRoutes);
     this.app.use(`${apiPrefix}/product-categories`, productCategoryRoutes);
+    this.app.use(`${apiPrefix}/client-categories`, clientCategoryRoutes);
     this.app.use(`${apiPrefix}/finance`, financialRoutes);
-    // this.app.use(`${apiPrefix}/invoices`, invoiceRoutes);
+    this.app.use(`${apiPrefix}/invoices`, invoiceRoutes);
     this.app.use(`${apiPrefix}/notifications`, notificationRoutes);
     this.app.use(`${apiPrefix}/reports`, reportsRoutes);
     this.app.use(`${apiPrefix}/sales`, saleRoutes);
