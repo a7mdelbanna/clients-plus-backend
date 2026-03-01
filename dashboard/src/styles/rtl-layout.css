@@ -1,0 +1,24 @@
+/* Layout Fixes */
+
+/* Ensure HTML and body don't clip content */
+html {
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Root app container */
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Tables should be scrollable */
+.MuiTableContainer-root {
+  overflow-x: auto;
+}

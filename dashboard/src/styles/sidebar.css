@@ -1,0 +1,67 @@
+/* Sidebar Theme Fixes */
+
+/* Ensure icons are always visible */
+.MuiListItemIcon-root {
+  opacity: 1 !important;
+}
+
+/* Dark mode icon visibility */
+[data-mui-color-scheme="dark"] .MuiListItemIcon-root {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Light mode icon visibility */
+[data-mui-color-scheme="light"] .MuiListItemIcon-root {
+  color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Active menu item */
+.MuiListItem-root.active .MuiListItemIcon-root {
+  color: var(--mui-palette-primary-main) !important;
+}
+
+/* Header improvements */
+.MuiAppBar-root {
+  backdrop-filter: blur(8px);
+}
+
+/* Theme toggle button visibility */
+.MuiIconButton-root svg {
+  transition: all 0.3s ease;
+}
+
+/* Ensure theme toggle is visible */
+.theme-toggle-button {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-mui-color-scheme="dark"] .theme-toggle-button {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Sidebar scrollbar styling */
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+[data-mui-color-scheme="dark"] .sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Improve contrast for all icons */
+.MuiSvgIcon-root {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.1));
+}
+
+[data-mui-color-scheme="dark"] .MuiSvgIcon-root {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.1));
+}

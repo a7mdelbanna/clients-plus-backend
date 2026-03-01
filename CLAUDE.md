@@ -37,30 +37,42 @@ The `firebase-admin` package is still in `package.json` but is **no longer the p
 
 ```
 clients-plus-backend/
+├── dashboard/                     # React frontend (see Dashboard section below)
+│   ├── src/
+│   │   ├── components/            # Reusable UI components
+│   │   ├── pages/                 # Page-level components (route targets)
+│   │   ├── services/              # API service layer (axios calls to backend)
+│   │   ├── contexts/              # React contexts (auth, theme, i18n)
+│   │   ├── hooks/                 # Custom React hooks
+│   │   ├── types/                 # TypeScript type definitions
+│   │   ├── utils/                 # Shared utilities
+│   │   └── i18n/                  # Internationalization (en/ar)
+│   ├── package.json
+│   └── vite.config.ts
 ├── prisma/
-│   └── schema.prisma          # Full DB schema (30+ models)
+│   └── schema.prisma              # Full DB schema (30+ models)
 ├── src/
-│   ├── app.ts                 # Express app setup, middleware, route mounting
-│   ├── server.ts              # Server entry point
-│   ├── config/                # DB, env, logger config
-│   ├── controllers/           # Route handlers (one per domain)
-│   ├── services/              # Business logic (one per domain)
-│   ├── routes/                # Express routers (one per domain)
-│   ├── middleware/             # Auth, error handling, validation, rate limiting
-│   ├── types/                 # TypeScript type definitions
-│   ├── utils/                 # Shared utilities
-│   ├── cron/                  # Scheduled jobs
-│   ├── websocket/             # Socket.io setup
-│   └── templates/             # Email/notification templates
+│   ├── app.ts                     # Express app setup, middleware, route mounting
+│   ├── server.ts                  # Server entry point
+│   ├── config/                    # DB, env, logger config
+│   ├── controllers/               # Route handlers (one per domain)
+│   ├── services/                  # Business logic (one per domain)
+│   ├── routes/                    # Express routers (one per domain)
+│   ├── middleware/                 # Auth, error handling, validation, rate limiting
+│   ├── types/                     # TypeScript type definitions
+│   ├── utils/                     # Shared utilities
+│   ├── cron/                      # Scheduled jobs
+│   ├── websocket/                 # Socket.io setup
+│   └── templates/                 # Email/notification templates
 ├── tests/
 │   ├── e2e-flows/
-│   │   └── run-all-flows.mjs  # 30 E2E business flow tests (main test suite)
-│   ├── e2e/                   # Older E2E tests
-│   ├── unit/                  # Unit tests
-│   ├── integration/           # Integration tests
-│   ├── security/              # Security tests
-│   └── performance/           # Performance tests
-└── CLAUDE.md                  # This file
+│   │   └── run-all-flows.mjs      # 30 E2E business flow tests (main test suite)
+│   ├── e2e/                       # Older E2E tests
+│   ├── unit/                      # Unit tests
+│   ├── integration/               # Integration tests
+│   ├── security/                  # Security tests
+│   └── performance/               # Performance tests
+└── CLAUDE.md                      # This file
 ```
 
 ## API Domains (Routes)
@@ -187,6 +199,53 @@ These were found and fixed during the cross-domain E2E test development:
 1. **Express route ordering** (`appointment.routes.ts`): Named routes like `/analytics`, `/conflicts`, `/statistics/no-shows` were placed AFTER `/:id`, so Express matched "analytics" as an appointment ID. Fixed by moving all named routes before `/:id`.
 
 2. **changeHistory spread crash** (`appointment.service.ts`): The `changeHistory` Prisma JsonValue field was spread with `...((field) || [])` but JsonValue isn't guaranteed to be an array. Fixed with `Array.isArray()` guard.
+
+## Dashboard Frontend
+
+The `dashboard/` directory contains the admin dashboard — a React SPA that consumes the backend API.
+
+### Dashboard Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 |
+| Build Tool | Vite 7 |
+| Language | TypeScript 5.8 |
+| UI Library | MUI (Material UI) 7 |
+| Routing | React Router 7 |
+| Forms | React Hook Form + Yup |
+| HTTP Client | Axios |
+| Charts | ECharts, Recharts |
+| i18n | i18next (English + Arabic with RTL) |
+| State | React Context |
+| Real-time | Socket.io Client |
+| Animations | Framer Motion |
+
+### Running the Dashboard
+
+```bash
+cd dashboard
+cp .env.example .env     # Configure API URL and feature flags
+npm install
+npm run dev              # Starts Vite dev server (default port 5173)
+```
+
+The dashboard expects the backend to be running (default `http://localhost:3005/api/v1`). Configure `VITE_API_URL` in `dashboard/.env`.
+
+### Dashboard Environment Variables
+
+See `dashboard/.env.example` for all available variables. Key ones:
+- `VITE_API_URL` — Backend API base URL
+- `VITE_FORCE_EXPRESS_MODE` — Use Express/Prisma backend (set to `true`)
+- `VITE_USE_WEBSOCKET` — Enable WebSocket real-time updates
+- `VITE_ENABLE_CACHING` — Enable client-side caching
+
+### Dashboard ↔ Backend Relationship
+
+- The dashboard is a **standalone SPA** — it communicates with the backend exclusively via REST API calls
+- API service files in `dashboard/src/services/` map to backend routes at `/api/v1/<domain>`
+- Auth tokens (JWT) are stored client-side and sent via `Authorization: Bearer` header
+- The dashboard has feature flags (`VITE_USE_EXPRESS_*`) to toggle between Express backend and legacy Firebase (all should be `true`)
 
 ## What Still Needs To Be Done
 

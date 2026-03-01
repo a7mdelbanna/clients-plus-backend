@@ -162,3 +162,10 @@ playwright-report/
 # Misc
 *.tgz
 *.tar.gz
+
+# Dashboard frontend (safety net — dashboard/.gitignore handles these too)
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.env
+dashboard/.env.local
+dashboard/test-screenshots/
